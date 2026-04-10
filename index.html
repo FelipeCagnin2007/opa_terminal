@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OPA Protocol v8.0 - Professional</title>
+    <title>OPA Protocol v9.0 - Cedilha Edition</title>
     <style>
         :root {
             --glow: #00ff41;
@@ -80,7 +80,6 @@
             outline: none; 
         }
 
-        /* Botões */
         .actions {
             display: flex;
             gap: 10px;
@@ -105,11 +104,9 @@
         }
 
         .btn:hover { background: rgba(0, 255, 65, 0.1); transform: translateY(-2px); }
-        .btn:active { transform: translateY(0); }
         .btn-clear { border-color: var(--danger); color: var(--danger); }
         .btn-clear:hover { background: rgba(255, 62, 62, 0.1); }
 
-        /* Tabela Ref */
         .ref-section { 
             margin-top: 30px; 
             width: 100%; 
@@ -141,9 +138,7 @@
             border: 1px solid #1a1a1a; 
             font-size: 0.75rem; 
             border-radius: 6px;
-            transition: border 0.3s;
         }
-        .ref-card:hover { border-color: var(--accent); }
         .ref-card b { color: #fff; display: block; margin-bottom: 5px; font-size: 0.9rem; }
         .ref-card span { color: var(--accent); font-family: monospace; word-break: break-all; }
 
@@ -180,20 +175,29 @@
 
 <div id="toast" class="toast">Copiado com sucesso!</div>
 
-<div class="ref-section" id="tabelaRef">
-    <!-- Gerado via JS -->
-</div>
+<div class="ref-section" id="tabelaRef"></div>
 
 <script>
     const alfabeto = "abcdefghijklmnopqrstuvwxyz";
-    const acentosBase = { 'á':'a', 'à':'a', 'ã':'a', 'â':'a', 'é':'e', 'ê':'e', 'í':'i', 'ó':'o', 'ô':'o', 'õ':'o', 'ú':'u' };
+    // Mapeamento de bases (cedilha entra aqui como base 'c')
+    const acentosBase = { 
+        'á':'a', 'à':'a', 'ã':'a', 'â':'a', 
+        'é':'e', 'ê':'e', 
+        'í':'i', 
+        'ó':'o', 'ô':'o', 'õ':'o', 
+        'ú':'u', 
+        'ç':'c' 
+    };
+    
     const extraParaAcento = {
         'a': {1:'á', 2:'à', 3:'ã', 4:'â'},
         'e': {1:'é', 2:'ê'},
         'i': {1:'í'},
         'o': {1:'ó', 2:'ô', 3:'õ'},
-        'u': {1:'ú'}
+        'u': {1:'ú'},
+        'c': {1:'ç'} // Cedilha no nível 1
     };
+    
     const pontuacao = {'.': 2, ',': 3, '?': 4, '!': 5, ';': 6, ':': 7, '-': 8};
 
     const areaNormal = document.getElementById('inNormal');
@@ -204,14 +208,18 @@
             if (char === ' ') return '/';
             if (char === '\n') return '\n';
             if (pontuacao[char]) return "op" + "a".repeat(pontuacao[char]);
+            
             let base = acentosBase[char] || char;
             let i = alfabeto.indexOf(base);
             if (i === -1) return char;
+            
             let o, p;
             if (i < 9) { o = 1; p = i + 2; }
             else if (i < 19) { o = 2; p = i - 8; }
             else { o = 3; p = i - 18; }
+            
             let res = "o".repeat(o) + "p".repeat(p) + "a";
+            
             if (acentosBase[char]) {
                 for (let n in extraParaAcento[base]) {
                     if (extraParaAcento[base][n] === char) { res += "a".repeat(parseInt(n)); break; }
@@ -225,15 +233,19 @@
         return textoOpa.trim().split(/\s+/).map(t => {
             if (t === '/') return ' ';
             if (t === '\n') return '\n';
+            
             if (t.startsWith('op') && !t.includes('oo') && !t.includes('pp')) {
                 let as = (t.match(/a/g) || []).length;
                 for (let p in pontuacao) if (pontuacao[p] === as) return p;
             }
+            
             const o = (t.match(/o/g) || []).length;
             const p = (t.match(/p/g) || []).length;
             const a = (t.match(/a/g) || []).length;
+            
             let i = (o === 1) ? p - 2 : (o === 2) ? p + 8 : (o === 3) ? p + 18 : -1;
             let l = alfabeto[i] || t;
+            
             if (a > 1 && extraParaAcento[l]) {
                 let ex = a - 1;
                 if (extraParaAcento[l][ex]) return extraParaAcento[l][ex];
@@ -252,7 +264,7 @@
 
     function copiarOpa() {
         areaOpa.select();
-        document.execCommand("copy");
+        navigator.clipboard.writeText(areaOpa.value);
         const toast = document.getElementById('toast');
         toast.style.display = "block";
         setTimeout(() => toast.style.display = "none", 2000);
@@ -263,7 +275,7 @@
         alfabeto.split('').forEach(l => {
             h += `<div class="ref-card"><b>${l.toUpperCase()}</b><span>${codificar(l)}</span></div>`;
         });
-        h += '<div class="section-title">Acentuação</div>';
+        h += '<div class="section-title">Acentuação & Cedilha</div>';
         for (let b in extraParaAcento) {
             for (let n in extraParaAcento[b]) {
                 let c = extraParaAcento[b][n];
