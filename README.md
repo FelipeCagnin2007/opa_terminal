@@ -1,9 +1,7 @@
-Aqui está uma descrição completa, técnica e estilizada para o seu README.md, focada no visual Cyberpunk/Terminal que o projeto carrega.
-
-Basta copiar e colar o conteúdo abaixo:
+#opa_terminal
 
 📟 OPA Protocol System v9.0
-Acesse o Terminal: felipecagnin2007.github.io/opa_terminal/
+Acesse o Terminal: [ https://felipecagnin2007.github.io/opa_terminal/](https://felipecagnin2007.github.io/opa_terminal/)
 
 O OPA Protocol é um motor de criptografia e tradução léxica baseado em frequências de caracteres e expansão de sufixos. Projetado com uma estética Cyber-Noir, o sistema permite a codificação de mensagens humanas para a linguagem "OPA" e a decodificação instantânea de sequências complexas.
 
