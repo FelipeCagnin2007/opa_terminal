@@ -22,7 +22,7 @@ OPA: opppppaa ooooopppa opaaaaa
 🚀 Funcionalidades Principais
 Tradução Bidirecional: Digite em português e receba OPA, ou cole OPA e recupere o texto original em tempo real.
 
-Suporte Total à Língua Portuguesa: Sistema avançado para reconhecer á, à, ã, â, é, ê, í, ó, ô, õ, ú e o caractere ç.
+Suporte Total à Língua Portuguesa e Espanhola: Sistema avançado para reconhecer á, à, ã, â, é, ê, í, ó, ô, õ, ú e o caractere ç e ñ.
 
 Interface Responsiva: Otimizado para visualização em desktops e dispositivos móveis (Mobile Ready).
 
