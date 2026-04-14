@@ -4,7 +4,27 @@ const areaOpa = document.getElementById('inOpa');
 const areaExecutor = document.getElementById('inExecutor');
 
 // --- Tab System ---
+let isLinguopaActive = false; // Flag for tab locking
+
+function toggleMenu() {
+    const tabs = document.getElementById('navTabs');
+    const toggle = document.getElementById('menuToggle');
+    if (tabs) {
+        tabs.classList.toggle('active');
+        toggle.classList.toggle('open');
+    }
+}
+
 function switchTab(tabId) {
+    if (isLinguopaActive) {
+        if (typeof showTemporaryMsg === 'function') {
+            showTemporaryMsg("BLOQUEIO: Encerre o Linguopa antes de trocar de aba!");
+        } else {
+            alert("Encerre o jogo Linguopa antes de trocar de aba.");
+        }
+        return;
+    }
+
     document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
 
@@ -12,19 +32,29 @@ function switchTab(tabId) {
     
     // Set active button
     const activeBtn = Array.from(document.querySelectorAll('.tab-btn')).find(btn => 
-        btn.getAttribute('onclick').includes(tabId)
+        btn.getAttribute('onclick') && btn.getAttribute('onclick').includes(tabId)
     );
     if (activeBtn) activeBtn.classList.add('active');
+
+    // Close menu on mobile after selection
+    const tabs = document.getElementById('navTabs');
+    const toggle = document.getElementById('menuToggle');
+    if (tabs && window.innerWidth <= 768) {
+        tabs.classList.remove('active');
+        if (toggle) toggle.classList.remove('open');
+    }
 }
 
 // --- Translator Logic ---
 if (areaNormal && areaOpa) {
     areaNormal.addEventListener('input', () => {
         areaOpa.value = codificar(areaNormal.value);
+        if (typeof registerTranslation === 'function') registerTranslation();
     });
 
     areaOpa.addEventListener('input', () => {
         areaNormal.value = decodificar(areaOpa.value);
+        if (typeof registerTranslation === 'function') registerTranslation();
     });
 }
 
