@@ -1,7 +1,7 @@
 # opa_terminal
 
 📟 OPA Protocol System v9.0
-Acesse o Terminal: [ https://felipecagnin2007.github.io/opa_terminal/](https://felipecagnin2007.github.io/opa_terminal/)
+Acesse o Terminal: [ opa-terminal.vercel.app](opa-terminal.vercel.app)
 
 O OPA Protocol é um motor de criptografia e tradução léxica baseado em frequências de caracteres e expansão de sufixos. Projetado com uma estética Cyber-Noir, o sistema permite a codificação de mensagens humanas para a linguagem "OPA" e a decodificação instantânea de sequências complexas.
 
