@@ -1,4 +1,4 @@
-// OPA Protocol Core - Code Edition (Lexer-pointer based)
+// OPA Protocol Core - Refactored for React
 const ALF_LOWER = "abcdefghijklmnopqrstuvwxyz";
 const ALF_SIMB = "<>{}[]()\\/|!@#$%^&*-=_+;:,.\"'`~?\t";
 
@@ -17,7 +17,7 @@ const mapaAcentos = {
 /**
  * Encodes any character into OPA format.
  */
-function codificar(texto) {
+export function codificar(texto) {
     if (!texto) return "";
     let res = "";
     let mode = MODO_TEXTO;
@@ -95,7 +95,7 @@ function codificar(texto) {
 /**
  * Decodes OPA format back to original text.
  */
-function decodificar(opa) {
+export function decodificar(opa) {
     if (!opa) return "";
     let mode = MODO_TEXTO;
     let res = "";
@@ -164,3 +164,9 @@ function decodificar(opa) {
     }
     return res;
 }
+
+export const CONSTANTS = {
+  ALF_LOWER,
+  ALF_SIMB,
+  mapaAcentos
+};
