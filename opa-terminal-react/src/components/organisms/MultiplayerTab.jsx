@@ -113,11 +113,18 @@ export function MultiplayerTab() {
     if (newPlayers.length === maxPlayers || (room.game_state.mode === 'dupla' && newPlayers.length === 2)) {
         nextStatus = 'playing';
         
-        // Finalize positions for Dupla (fill remaining with CPU)
+        // Fill remaining slots with CPUs correctly
+        // Team 1: 0, 2 | Team 2: 1, 3
         if (room.game_state.mode === 'dupla') {
-           newPositions[2] = 'CPU_PARTNER';
-           newPositions[1] = 'CPU_OPP_1';
-           newPositions[3] = 'CPU_OPP_2';
+           // In dupla (2 humans), ensure pos 0 and 1 are kept (they are opponents)
+           // and fill pos 2 and 3 with CPUs as their partners
+           if (!newPositions[2]) newPositions[2] = 'CPU_PARTNER_0';
+           if (!newPositions[3]) newPositions[3] = 'CPU_PARTNER_1';
+        } else if (room.game_state.mode === 'quarteto') {
+            // Quarteto needs 4 humans, but if we start early or something, fill rest
+            for (let i = 0; i < 4; i++) {
+                if (!newPositions[i]) newPositions[i] = `CPU_${i}`;
+            }
         }
         
         finalGameState = initializeTrucoState(finalGameState, newPositions);
