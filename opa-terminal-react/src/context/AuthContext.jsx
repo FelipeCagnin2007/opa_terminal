@@ -121,27 +121,6 @@ export const AuthProvider = ({ children }) => {
     };
   }, []);
 
-  // Realtime Profile Sync
-  useEffect(() => {
-    if (!user?.id) return;
-
-    const channelId = `sync_${user.id}_${Math.random().toString(36).substring(2, 8)}`;
-    const channel = supabase
-      .channel(channelId)
-      .on('postgres_changes', { 
-        event: 'UPDATE', 
-        schema: 'public', 
-        table: 'usuarios', 
-        filter: `id=eq.${user.id}` 
-      }, (payload) => {
-        setProfile(payload.new);
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user?.id]);
 
   const logout = async () => {
     await supabase.auth.signOut();

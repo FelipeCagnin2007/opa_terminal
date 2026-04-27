@@ -3,7 +3,7 @@ import { supabase } from '../../utils/supabaseClient';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Trophy, User, ArrowLeft, Cpu, Zap, MessageSquare } from 'lucide-react';
 import { Button } from '../atoms/Button';
-import { getCPUMove, autoRespondToTruco } from '../../utils/trucoAI';
+import { getCPUMove, autoRespondToTruco, shouldCPUCallTruco } from '../../utils/trucoAI';
 import { getCardPower, resolveRound, createDeck, getManilhaValue, initializeTrucoState, determineHandWinner } from '../../utils/trucoLogic';
 import { usePet } from '../../context/PetContext';
 import { p2p } from '../../utils/p2pService';
@@ -45,106 +45,183 @@ export function TrucoBoard({ roomId, profile, onExit }) {
   
   const { addReward } = usePet();
   const [hostId, setHostId] = useState(null);
+  const hostIdRef = useRef(null);
+
   const [myPosition, setMyPosition] = useState(null);
+  const myPositionRef = useRef(null);
+  const setMyPositionWithRef = (val) => { myPositionRef.current = val; setMyPosition(val); };
+
   const [isMyTurn, setIsMyTurn] = useState(false);
   const responseInitiatedRef = useRef(null);
   const moveInitiatedRef = useRef(null);
 
-
   const [isP2PReady, setIsP2PReady] = useState(false);
   const [isHost, setIsHost] = useState(false);
+  const isHostRef = useRef(false);
 
-  // Sync Logic Unified
-  const updateGameState = async (newState) => {
+  // Sync Logic — always uses refs so it works correctly from stale closures
+  const updateGameState = (newState) => {
     setGameState(newState);
-    if (!newState.mode || newState.mode === 'solo') return; // Local only
+    if (!newState.mode || newState.mode === 'solo') return;
 
-    if (isHost) {
-        // Broadcast to all peers
+    if (isHostRef.current) {
+        // Host broadcasts every state change to all connected guests
         p2p.broadcast({ type: 'STATE_UPDATE', gameState: newState });
-    } else {
-        // Client shouldn't typically update state directly, but send action
-        // This is a safety fallback or for minor local-only visual updates
     }
   };
 
-  const sendAction = (action) => {
-    if (gameState?.mode === 'solo') {
-        processAction(action, gameState);
-        return;
-    }
 
-    if (isHost) {
-        processAction(action, gameState);
-    } else {
-        // Send to host
-        p2p.broadcast({ type: 'ACTION', action, from: profile.id });
-    }
-  };
-
-  const processAction = async (action, currentState) => {
-      // Move logic from handlePlayCard/handleTrucoResponse here
-      // For now, I will keep the existing handlers but make them call updateGameState
-  };
 
   useEffect(() => {
+    let cleanedUp = false;
+    let supabaseChannel = null;
+
     const initGame = async () => {
-        // 1. Check if Offline/Solo
+        // 1. Fetch room data from Supabase (signaling channel only)
         const { data: roomData } = await supabase
             .from('game_rooms')
             .select('*')
             .eq('id', roomId)
             .single();
-        
-        if (!roomData) return;
-        const initialGS = roomData.game_state;
-        const hostIdFromDB = roomData.host_id;
-        
-        setHostId(hostIdFromDB);
-        setIsHost(hostIdFromDB === profile.id);
 
-        if (initialGS.mode === 'solo') {
-            setGameState(initialGS);
+        if (!roomData || cleanedUp) return;
+
+        const hostIdFromDB = roomData.host_id;
+        const amHost = hostIdFromDB === profile.id;
+
+        setHostId(hostIdFromDB);
+        hostIdRef.current = hostIdFromDB;
+        setIsHost(amHost);
+        isHostRef.current = amHost;
+
+        // 2. Solo mode — no P2P needed
+        if (roomData.game_state?.mode === 'solo') {
+            setGameState(roomData.game_state);
             setIsP2PReady(true);
             return;
         }
 
-        // 2. Setup P2P
-        // Use a unique ID based on Room + User for reliable discovery
+        // 3. Initialize PeerJS with deterministic ID
         const myP2PId = `truco_${roomId}_${profile.id}`;
-        await p2p.initialize(myP2PId);
-
-        // All non-hosts connect to the host
-        if (hostIdFromDB !== profile.id) {
-            const hostP2PId = `truco_${roomId}_${hostIdFromDB}`;
-            p2p.connect(hostP2PId);
+        try {
+            await p2p.initialize(myP2PId);
+        } catch (err) {
+            console.error('[P2P] Failed to initialize peer:', err);
+            return;
         }
+        if (cleanedUp) return;
 
-        p2p.onMessage((data) => {
-            if (data.type === 'STATE_UPDATE') {
-                setGameState(data.gameState);
-            } else if (data.type === 'ACTION' && hostIdFromDB === profile.id) {
-                // Host handles incoming actions
+        // 4. Subscribe to incoming P2P messages
+        p2p.onMessage((data, fromPeerId) => {
+            if (data.type === 'STATE_SYNC' || data.type === 'STATE_UPDATE') {
+                const gs = data.gameState;
+                console.log('[P2P] Received', data.type, '— positions:', JSON.stringify(gs?.positions), '— myId:', profile.id);
+                setGameState(gs);
+                setIsP2PReady(true);
+            } else if (data.type === 'REQUEST_STATE' && amHost) {
+                // Guest explicitly requesting current state (safety net)
+                const requesterPeerId = `truco_${roomId}_${data.from}`;
+                const currentState = gameStateRef.current;
+                console.log('[P2P] REQUEST_STATE from', data.from, '— sending STATE_SYNC');
+                if (currentState?.status === 'playing') {
+                    p2p.sendTo(requesterPeerId, { type: 'STATE_SYNC', gameState: currentState });
+                } else {
+                    console.warn('[P2P] Host has no playing state yet to send. Will send when DB updates.');
+                }
+            } else if (data.type === 'ACTION' && amHost) {
                 handleIncomingAction(data.action, data.from);
             }
         });
 
-        setGameState(initialGS);
-        setIsP2PReady(true);
+        if (amHost) {
+            // 5a. HOST FLOW
+            // The host enters the room when it's still 'waiting' (no game state yet).
+            // We MUST subscribe to Supabase Realtime so we know when the guest joins
+            // and the DB is updated with the full initialized game state (positions + hands).
+            console.log('[HOST] Subscribing to room updates for room:', roomId);
+
+            supabaseChannel = supabase
+                .channel(`host_room_${roomId}`)
+                .on(
+                    'postgres_changes',
+                    { event: 'UPDATE', schema: 'public', table: 'game_rooms', filter: `id=eq.${roomId}` },
+                    (payload) => {
+                        if (cleanedUp) return;
+                        const updatedGS = payload.new?.game_state;
+                        if (!updatedGS) return;
+
+                        console.log('[HOST] DB update received — positions:', JSON.stringify(updatedGS.positions), '— status:', payload.new.status);
+
+                        // Only sync when the room transitions to 'playing' with all positions filled
+                        if (payload.new.status === 'playing' || updatedGS.status === 'playing') {
+                            setGameState(updatedGS);
+                            setIsP2PReady(true);
+                            // Broadcast the real initialized state to any already-connected guests
+                            p2p.broadcast({ type: 'STATE_SYNC', gameState: updatedGS });
+                        }
+                    }
+                )
+                .subscribe();
+
+            // When a new peer connects, send current state (if already initialized)
+            // or they will receive it via the Supabase broadcast above
+            p2p.onConnectionOpen((newPeerId) => {
+                const currentState = gameStateRef.current;
+                if (currentState?.status === 'playing') {
+                    console.log('[P2P] New peer connected:', newPeerId, '— sending STATE_SYNC (already playing)');
+                    p2p.sendTo(newPeerId, { type: 'STATE_SYNC', gameState: currentState });
+                } else {
+                    console.log('[P2P] New peer connected:', newPeerId, '— waiting for game to start (room still waiting)');
+                }
+            });
+
+            // Set initial state (room still 'waiting', no hands dealt yet — just show waiting screen)
+            setGameState(roomData.game_state);
+            setIsP2PReady(true);
+
+        } else {
+            // 5b. GUEST FLOW — connect to host and wait for STATE_SYNC
+            const hostP2PId = `truco_${roomId}_${hostIdFromDB}`;
+            console.log('[P2P] Guest connecting to host:', hostP2PId);
+            try {
+                await p2p.connect(hostP2PId);
+                console.log('[P2P] Data channel open — sending REQUEST_STATE to host');
+                p2p.sendTo(hostP2PId, { type: 'REQUEST_STATE', from: profile.id });
+            } catch (err) {
+                console.error('[P2P] P2P connection failed — falling back to Supabase DB read:', err);
+                // Fallback: read the current playing state directly from DB
+                const { data: freshRoom } = await supabase
+                    .from('game_rooms')
+                    .select('game_state')
+                    .eq('id', roomId)
+                    .single();
+                if (freshRoom?.game_state && !cleanedUp) {
+                    console.log('[P2P] Fallback: loading state from Supabase DB directly');
+                    setGameState(freshRoom.game_state);
+                    setIsP2PReady(true);
+                }
+            }
+        }
     };
 
     initGame();
 
     return () => {
-      p2p.destroy();
+        cleanedUp = true;
+        if (supabaseChannel) supabase.removeChannel(supabaseChannel);
+        p2p.destroy();
     };
   }, [roomId]);
 
+
   const handleIncomingAction = (action, fromId) => {
-      // Find position of fromId
-      const pos = Object.keys(gameStateRef.current.positions).find(k => gameStateRef.current.positions[k] == fromId);
+      const gs = gameStateRef.current;
+      if (!gs) return;
+
+      // Find position of fromId in the current game positions
+      const pos = Object.keys(gs.positions).find(k => gs.positions[k] == fromId);
       if (pos === undefined) return;
-      
+
       if (action.type === 'PLAY_CARD') {
           handlePlayCard(action.card, parseInt(pos));
       } else if (action.type === 'TRUCO_RESPONSE') {
@@ -159,7 +236,8 @@ export function TrucoBoard({ roomId, profile, onExit }) {
     
     // Find my position (0, 1, 2 or 3)
     const pos = Object.keys(gameState.positions).find(k => gameState.positions[k] == profile.id);
-    setMyPosition(pos !== undefined ? parseInt(pos) : null);
+    console.log('[TRUCO] Resolving myPosition — profile.id:', profile.id, '— positions:', JSON.stringify(gameState.positions), '— found pos:', pos);
+    setMyPositionWithRef(pos !== undefined ? parseInt(pos) : null);
 
     // Determine turn
     setIsMyTurn(gameState.currentTurn == profile.id);
@@ -267,53 +345,54 @@ export function TrucoBoard({ roomId, profile, onExit }) {
   }, [gameState?.currentTurn, gameState?.trucoChallenge, gameState?.positions, profile?.id, hostId]);
 
   const executeCPUMove = async (cpuPos) => {
-    const cpuId = gameState.positions[cpuPos];
+    const gameState = gameStateRef.current;
+    if (!gameState) return;
+
+    const cpuId   = gameState.positions[cpuPos];
     const cpuHand = gameState.hands[cpuPos];
-    
+
     console.log(`[TRUCO_SYSTEM] CPU ${cpuId} executando movimento em posição ${cpuPos}`);
-    
-    // Safety check: don't play if a challenge is pending
-    if (gameState.trucoChallenge?.status === 'pending') {
-        console.log(`[TRUCO_SYSTEM] CPU ${cpuId} aguardando resolução de desafio.`);
-        moveInitiatedRef.current = null; // Allow retry later
-        return;
-    }
 
     if (!cpuHand || cpuHand.length === 0) return;
 
-    const move = getCPUMove(cpuHand, gameState.table, gameState.vira, gameState, cpuPos);
-    if (move) {
-        // AI SHOUTS TRUCO? (Can shout even if not their turn if they have a manilha or are bluffing)
-        const cpuTeam = (cpuPos % 2 === 0) ? 'ours' : 'theirs';
-        const lastChallengerTeam = gameState.trucoChallenge?.challengerTeam;
-        
-        // Increase calling frequency for CPUs
-        const shouldCallTruco = move.shoutsTruco || (Math.random() < 0.15); // Random bluff calling
+    // Safety: don't play while a challenge is pending
+    if (gameState.trucoChallenge?.status === 'pending') {
+        moveInitiatedRef.current = null;
+        return;
+    }
 
-        const isChallengePending = gameState.trucoChallenge?.status === 'pending';
-
-        if (shouldCallTruco && !isChallengePending && gameState.handPoints < 12 && cpuTeam !== lastChallengerTeam) {
-            const nextPoints = gameState.handPoints === 1 ? 3 : gameState.handPoints + 3;
-            // CPU shouts! 
-            const cpuTrucoState = {
+    // ── Step 1: Should CPU call Truco before playing? ──
+    const cpuTeam = cpuPos % 2 === 0 ? 'ours' : 'theirs';
+    if (shouldCPUCallTruco(cpuHand, gameState.vira, gameState, cpuPos)) {
+        const nextPoints = gameState.handPoints === 1 ? 3 : gameState.handPoints + 3;
+        if (nextPoints <= 12) {
+            console.log(`[TRUCO_SYSTEM] CPU ${cpuId} pedindo Truco! (${nextPoints} pontos)`);
+            updateGameState({
                 ...gameState,
                 handPoints: nextPoints,
                 trucoChallenge: {
-                    challenger: cpuId,
+                    challenger:     cpuId,
                     challengerTeam: cpuTeam,
-                    status: 'pending',
-                    value: nextPoints
+                    status:         'pending',
+                    value:          nextPoints
                 }
-            };
-            updateGameState(cpuTrucoState);
-            return; // Wait for response
+            });
+            return; // Wait for humans / other CPUs to respond
         }
+    }
 
+    // ── Step 2: Play a card ──
+    const move = getCPUMove(cpuHand, gameState.table, gameState.vira, gameState, cpuPos);
+    if (move) {
         await handlePlayCard(cpuHand[move.cardIndex], cpuPos);
     }
   };
 
   const handlePlayCard = async (card, pos) => {
+    // Always read from ref to avoid stale closure issues (called from P2P handlers and timeouts)
+    const gameState = gameStateRef.current;
+    if (!gameState) return;
+
     if (gameState.currentTurn !== gameState.positions[pos] && gameState.currentTurn !== 'ANY') return;
     if (gameState.trucoChallenge?.status === 'pending') return;
 
@@ -329,89 +408,98 @@ export function TrucoBoard({ roomId, profile, onExit }) {
         }
     };
 
-    const maxTableSize = gameState.mode === 'solo' || gameState.mode === 'quarteto' ? 4 : 2;
+    // All 4 players always play one card per round (mode=dupla means 2 humans + 2 CPU partners)
+    const maxTableSize = 4;
     
     if (newTable.length < maxTableSize) {
-        // Normal clockwise turn
         const nextPos = (pos + 1) % 4;
         newState.currentTurn = gameState.positions[nextPos];
     } else {
-        // Round ends
         newState.currentTurn = 'WAITING_RESOLUTION';
     }
 
-    // UPDATE LOCAL STATE IMMEDIATELY to prevent double clicks
+    // Update local state immediately to prevent double clicks
     setGameState(newState);
 
     if (newTable.length === maxTableSize) {
-        // HOST AUTHORITY: Resolve the round
-        if (profile.id == hostId || (gameState.positions && gameState.positions[0] == profile.id)) {
+        // HOST AUTHORITY: only host resolves rounds to avoid race conditions
+        if (isHostRef.current) {
             setTimeout(async () => {
-                const currentTableState = gameStateRef.current;
-                const result = resolveRound(currentTableState.table, currentTableState.vira);
+                const s = gameStateRef.current;
+                if (!s || s.table.length === 0) return; // already resolved
+
+                const result = resolveRound(s.table, s.vira);
                 
-                let nextRound = (currentTableState.currentRound || 0);
-                let roundWinners = [...(currentTableState.roundPoints || [])];
-                let nextTurnId = null;
-                let roundResultTeam = null;
+                const nextRound    = (s.currentRound || 0);
+                const roundWinners = [...(s.roundPoints || [])];
+                let   nextTurnId   = null;
+                let   roundResultTeam = null;
                 
                 if (result.draw) {
-                    roundWinners[nextRound] = 0; // 0 = draw
-                    // In a draw, the previous round's winner starts. If 1st round draws, next player starts.
-                    nextTurnId = currentTableState.table[0].player; 
+                    roundWinners[nextRound] = 0;
+                    // Draw: the player who opened this round opens the next one too
+                    // (the one who played first in the table array)
+                    nextTurnId    = s.table[0].player;
                     roundResultTeam = 'draw';
                 } else {
-                    const winnerPos = result.winner_pos;
+                    const winnerPos   = result.winner_pos;
                     const winningTeam = (winnerPos === 0 || winnerPos === 2) ? 'ours' : 'theirs';
                     roundWinners[nextRound] = winningTeam === 'ours' ? 1 : 2;
-                    nextTurnId = currentTableState.positions[winnerPos];
+                    nextTurnId    = s.positions[winnerPos];
                     roundResultTeam = winningTeam;
                 }
 
                 const handWinner = determineHandWinner(roundWinners);
 
                 let finalState = {
-                    ...currentTableState,
-                    table: [],
-                    roundPoints: roundWinners,
+                    ...s,
+                    table:        [],
+                    roundPoints:  roundWinners,
                     currentRound: nextRound + 1,
-                    currentTurn: nextTurnId,
-                    lastWinner: roundResultTeam
+                    currentTurn:  nextTurnId,
+                    lastWinner:   roundResultTeam
                 };
 
-                if (handWinner) {
-                   const points = currentTableState.handPoints || 1;
-                   if (handWinner === 'ours') finalState.score.ours += points;
-                   else if (handWinner === 'theirs') finalState.score.theirs += points;
-                   
-                   if (finalState.score.ours >= 12) finalState.winner = 'ours';
-                   else if (finalState.score.theirs >= 12) finalState.winner = 'theirs';
+                if (handWinner === 'draw') {
+                    // Triple draw — no points awarded, start fresh hand
+                    const freshState = initializeTrucoState(
+                        { score: finalState.score, dealer: s.dealer },
+                        finalState.positions
+                    );
+                    finalState = { ...finalState, ...freshState, lastWinner: 'draw' };
+                } else if (handWinner) {
+                    const points = s.handPoints || 1;
+                    finalState.score = { ...s.score };
+                    if (handWinner === 'ours')   finalState.score.ours   += points;
+                    else                          finalState.score.theirs += points;
+
+                    if (finalState.score.ours   >= 12) finalState.winner = 'ours';
+                    else if (finalState.score.theirs >= 12) finalState.winner = 'theirs';
 
                     if (finalState.winner) {
-                         finalState.status = 'finished';
-                         if (finalState.winner === 'ours') addReward(100, 200);
+                        finalState.status = 'finished';
+                        if (finalState.winner === 'ours') addReward(100, 200);
                     } else {
-                        // Re-initialize for next hand
-                        const freshState = initializeTrucoState({ 
-                            score: finalState.score,
-                            dealer: currentTableState.dealer 
-                        }, finalState.positions);
-                        
+                        // Start fresh hand, keep score
+                        const freshState = initializeTrucoState(
+                            { score: finalState.score, dealer: s.dealer },
+                            finalState.positions
+                        );
                         finalState = { ...finalState, ...freshState, lastWinner: roundResultTeam };
                     }
                 }
 
                 updateGameState(finalState);
-            }, 2000);
+            }, 1500);
         }
     }
 
-    if (pos === myPosition) {
+    if (pos === myPositionRef.current) {
         addReward(2, 5);
     }
     
-    // Only if it was ME playing, and I'm not the host, send to Host
-    if (pos === myPosition && !isHost && gameState.mode !== 'solo') {
+    // If it was ME playing, and I'm not the host, send action to host
+    if (pos === myPositionRef.current && !isHostRef.current && gameState.mode !== 'solo') {
         p2p.broadcast({ type: 'ACTION', action: { type: 'PLAY_CARD', card, pos }, from: profile.id });
     }
 
@@ -422,12 +510,15 @@ export function TrucoBoard({ roomId, profile, onExit }) {
 
 
   const callTruco = async () => {
+    const gameState = gameStateRef.current;
+    if (!gameState) return;
     if (!isMyTurn || gameState.trucoChallenge) return;
     
     const nextPoints = gameState.handPoints === 1 ? 3 : gameState.handPoints + 3;
     if (nextPoints > 12) return;
 
-    const challengerTeam = (myPosition === 0 || myPosition === 2) ? 'ours' : 'theirs';
+    const pos = myPositionRef.current;
+    const challengerTeam = (pos === 0 || pos === 2) ? 'ours' : 'theirs';
     
     const nextState = {
         ...gameState,
@@ -443,7 +534,7 @@ export function TrucoBoard({ roomId, profile, onExit }) {
     updateGameState(nextState);
 
     // If client, send action to host
-    if (!isHost && gameState.mode !== 'solo') {
+    if (!isHostRef.current && gameState.mode !== 'solo') {
         p2p.broadcast({ type: 'ACTION', action: { type: 'CALL_TRUCO', from: profile.id }, from: profile.id });
     }
   };
@@ -524,7 +615,7 @@ export function TrucoBoard({ roomId, profile, onExit }) {
     updateGameState(newState);
 
     // If client, send to host
-    if (!isHost && gameState.mode !== 'solo') {
+    if (!isHostRef.current && gameStateRef.current?.mode !== 'solo') {
         p2p.broadcast({ type: 'ACTION', action: { type: 'TRUCO_RESPONSE', action, from: actingPlayerId }, from: profile.id });
     }
   };

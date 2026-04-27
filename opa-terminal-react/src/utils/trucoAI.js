@@ -1,111 +1,165 @@
-import { getCardPower } from './trucoLogic';
+import { getCardPower, getManilhaValue } from './trucoLogic';
+
+// ─── Hand analysis helpers ───────────────────────────────────────────────────
 
 /**
- * Advanced OPA AI for Truco
+ * Returns a sorted array of card powers for the given hand, highest first.
+ */
+const analyzeHand = (hand, vira) =>
+    hand
+        .map((card, index) => ({ index, card, power: getCardPower(card, vira) }))
+        .sort((a, b) => b.power - a.power);
+
+const isManilha = (card, vira) =>
+    vira && card.value === getManilhaValue(vira.value);
+
+const countManilhas = (hand, vira) =>
+    hand.filter(c => isManilha(c, vira)).length;
+
+// ─── getCPUMove ───────────────────────────────────────────────────────────────
+/**
+ * Decides which card the CPU should play.
+ * Returns { cardIndex: number }
+ *
+ * Strategy (Truco Paulista standard):
+ *  - First to play in a round → play second-strongest (keep best for later)
+ *  - Partner already winning → play lowest to save strong cards
+ *  - Need to beat opponent → use weakest card that still wins
+ *  - Cannot win → play weakest (cut losses)
  */
 export const getCPUMove = (hand, table, vira, gameState, myPos) => {
     if (!hand || hand.length === 0) return null;
 
-    const myTeam = (myPos % 2 === 0) ? 'ours' : 'theirs';
-    
-    // 1. Analyze the table
-    let bestCardOnTable = null;
-    let maxPowerOnTable = -1;
-    let partnerCard = null;
+    const myTeam = myPos % 2 === 0 ? 'ours' : 'theirs';
+    const sorted = analyzeHand(hand, vira); // highest first
 
-    if (table && table.length > 0) {
-        table.forEach(play => {
-            const power = getCardPower(play.card, vira);
-            const playTeam = (play.pos % 2 === 0) ? 'ours' : 'theirs';
-            
-            if (power > maxPowerOnTable) {
-                maxPowerOnTable = power;
-                bestCardOnTable = play;
-            }
-            if (playTeam === myTeam) {
-                partnerCard = play;
-            }
-        });
+    // ── No card on the table yet ──
+    if (!table || table.length === 0) {
+        // Opening play: use second-strongest on round 0 (save best),
+        // weakest on rounds 1+ (already know the context)
+        const target = gameState.currentRound === 0
+            ? (sorted[1] ?? sorted[0])   // second best or only card
+            : sorted[sorted.length - 1]; // weakest
+        return { cardIndex: target.index };
     }
 
-    // 2. Prepare hand with power info
-    const handWithPower = hand.map((card, index) => ({
-        index,
-        card,
-        power: getCardPower(card, vira)
-    }));
-    handWithPower.sort((a, b) => a.power - b.power);
+    // ── Cards already on table ──
+    const opponentCards = table.filter(p => p.pos % 2 !== myPos % 2);
+    const partnerCards  = table.filter(p => p.pos % 2 === myPos % 2);
 
-    let selectedCard = null;
+    const bestOpponentPower = opponentCards.length > 0
+        ? Math.max(...opponentCards.map(p => getCardPower(p.card, vira)))
+        : -1;
 
-    // 3. Strategy Logic
-    if (maxPowerOnTable === -1) {
-        // AI is first to play. Play the second strongest if first round, else weakest.
-        selectedCard = gameState.currentRound === 0 ? (handWithPower[1] || handWithPower[0]) : handWithPower[0];
-    } else {
-        const bestOpponentPower = table
-            .filter(p => (p.pos % 2 !== myPos % 2))
-            .reduce((max, p) => Math.max(max, getCardPower(p.card, vira)), -1);
-        
-        const partnerIsWinning = partnerCard && getCardPower(partnerCard.card, vira) > bestOpponentPower;
+    const partnerIsLeading =
+        partnerCards.length > 0 &&
+        Math.max(...partnerCards.map(p => getCardPower(p.card, vira))) > bestOpponentPower;
 
-        if (partnerIsWinning) {
-            // Partner is already winning, throw the weakest card (economize)
-            selectedCard = handWithPower[0];
-        } else {
-            // Need to beat the opponent
-            const killers = handWithPower.filter(h => h.power > bestOpponentPower);
-            if (killers.length > 0) {
-                // Use the weakest killer possible
-                selectedCard = killers[0];
-            } else {
-                // Cannot win, throw the weakest
-                selectedCard = handWithPower[0];
-            }
-        }
+    if (partnerIsLeading) {
+        // Partner is winning — play weakest to conserve
+        return { cardIndex: sorted[sorted.length - 1].index };
     }
 
-    // 4. Truco Logic (More sophisticated)
-    const hasManilha = handWithPower.some(h => h.power >= 100);
-    const topPower = handWithPower[handWithPower.length-1].power;
-    let shoutsTruco = false;
+    if (bestOpponentPower === -1) {
+        // Only partner has played (no opponent yet) — play weakest
+        return { cardIndex: sorted[sorted.length - 1].index };
+    }
 
-    // Only consider shouting if it's our team's turn to shout
+    // Try to beat the best opponent card with the weakest possible winner
+    const killers = sorted
+        .filter(h => h.power > bestOpponentPower)
+        .sort((a, b) => a.power - b.power); // weakest killer first
+
+    if (killers.length > 0) {
+        return { cardIndex: killers[0].index };
+    }
+
+    // Can't win — play weakest
+    return { cardIndex: sorted[sorted.length - 1].index };
+};
+
+// ─── shouldCPUCallTruco ───────────────────────────────────────────────────────
+/**
+ * Decides whether the CPU should call Truco BEFORE playing its card.
+ *
+ * Rules:
+ *  - Only on the CPU's own turn (when it's about to play)
+ *  - Only if it's not already the challenger team
+ *  - Only if handPoints < 12
+ *  - Probability based on actual hand strength
+ */
+export const shouldCPUCallTruco = (hand, vira, gameState, myPos) => {
+    if (!hand || hand.length === 0) return false;
+
+    const myTeam = myPos % 2 === 0 ? 'ours' : 'theirs';
     const lastChallengerTeam = gameState.trucoChallenge?.challengerTeam;
-    if (lastChallengerTeam !== myTeam && gameState.handPoints < 12) {
-        // High probability if has strong cards
-        if (hasManilha && Math.random() < 0.6) shoutsTruco = true;
-        else if (topPower >= 8 && Math.random() < 0.3) shoutsTruco = true; // 2 or 3
-        else if (gameState.currentRound === 0 && Math.random() < 0.1) shoutsTruco = true; // Bluff early
+
+    // Can't re-raise if we were the last to challenge
+    if (lastChallengerTeam === myTeam) return false;
+
+    // Can't go above 12
+    if (gameState.handPoints >= 12) return false;
+
+    // Don't shout if a challenge is already pending
+    if (gameState.trucoChallenge?.status === 'pending') return false;
+
+    const manilhas = countManilhas(hand, vira);
+    const powers   = hand.map(c => getCardPower(c, vira));
+    const maxPower = Math.max(...powers);
+    const round    = gameState.currentRound ?? 0;
+
+    // High chance: 2+ manilhas
+    if (manilhas >= 2) return Math.random() < 0.75;
+
+    // Good chance: 1 manilha + strong card
+    if (manilhas === 1 && maxPower >= 8) return Math.random() < 0.45;
+
+    // Medium: 1 manilha alone
+    if (manilhas === 1) return Math.random() < 0.25;
+
+    // Lower: two strong non-manilha cards (8 = '2', 9 = '3')
+    const strongCards = powers.filter(p => p >= 8).length;
+    if (strongCards >= 2) return Math.random() < 0.15;
+
+    // Rare bluff on round 0 only
+    if (round === 0 && maxPower >= 6) return Math.random() < 0.04;
+
+    return false;
+};
+
+// ─── autoRespondToTruco ───────────────────────────────────────────────────────
+/**
+ * Decides how the CPU responds to a Truco challenge.
+ * Returns 'ACCEPT' | 'FOLD' | 'RAISE'
+ *
+ * Conservative thresholds — bots shouldn't fold too easily or accept blindly.
+ */
+export const autoRespondToTruco = (hand, vira, gameState, myPos) => {
+    if (!hand || hand.length === 0) return 'FOLD';
+
+    const powers   = hand.map(c => getCardPower(c, vira));
+    const maxPower = Math.max(...powers);
+    const avgPower = powers.reduce((a, b) => a + b, 0) / powers.length;
+    const manilhas = countManilhas(hand, vira);
+
+    const myTeam       = myPos % 2 === 0 ? 'ours' : 'theirs';
+    const roundWinners = gameState.roundPoints ?? [];
+    const teamIndex    = myTeam === 'ours' ? 1 : 2;
+    const wonRound1    = roundWinners[0] === teamIndex;
+
+    // ── Strong enough to raise ──
+    if (gameState.handPoints < 12) {
+        if (manilhas >= 2 && Math.random() < 0.6) return 'RAISE';
+        if (manilhas === 1 && maxPower >= 9 && Math.random() < 0.25) return 'RAISE';
     }
 
-    return { cardIndex: selectedCard.index, shoutsTruco };
+    // ── Accept conditions ──
+    if (manilhas >= 1) return 'ACCEPT';                       // always accept with manilha
+    if (maxPower >= 9) return 'ACCEPT';                       // has '3'
+    if (maxPower >= 8 && wonRound1) return 'ACCEPT';          // up with a '2' after winning round 1
+    if (maxPower >= 8 && Math.random() < 0.55) return 'ACCEPT'; // has '2', coin flip
+    if (avgPower >= 6 && wonRound1) return 'ACCEPT';          // decent hand AND winning
+    if (avgPower >= 5 && Math.random() < 0.25) return 'ACCEPT'; // mediocre hand, small chance
+
+    return 'FOLD';
 };
-
-export const autoRespondToTruco = (hand, vira, gameState, myPos) => {
-    if (!hand || hand.length === 0) return 'FOLDED';
-    
-    const handWithPower = hand.map(card => getCardPower(card, vira));
-    const maxPower = Math.max(...handWithPower);
-    const avgPower = handWithPower.reduce((a, b) => a + b, 0) / handWithPower.length;
-    
-    // Thresholds
-    // If I have a Manilha, always accept
-    if (maxPower >= 100) return 'ACCEPTED';
-    
-    // If I have high cards (3 or 2)
-    if (maxPower >= 8) return 'ACCEPTED';
-    
-    // If we already won the first round
-    const myTeam = (myPos % 2 === 0) ? 'ours' : 'theirs';
-    const firstRoundWinner = gameState.roundPoints?.[0];
-    const teamIndex = myTeam === 'ours' ? 1 : 2;
-    
-    if (firstRoundWinner === teamIndex && avgPower > 4) return 'ACCEPTED';
-
-    // Random chance based on card strength (bluff detection/randomness)
-    if (avgPower > 5 && Math.random() < 0.5) return 'ACCEPTED';
-    
-    return 'FOLDED';
-};
-
