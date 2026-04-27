@@ -1,29 +1,40 @@
 /**
- * OPA TRUCO ENGINE v1.0
- * Regras: Truco Paulista
+ * OPA TRUCO ENGINE v2.0
+ * Regras: Truco Paulista (Vira + 1)
  */
 
 export const CARD_VALUES = ['4', '5', '6', '7', 'Q', 'J', 'K', 'A', '2', '3'];
 export const SUIT_POWER = { 'Paus': 4, 'Copas': 3, 'Espadas': 2, 'Ouros': 1 };
 
+/**
+ * Gets the Manilha card value based on the vira.
+ */
 export const getManilhaValue = (viraValue) => {
     const idx = CARD_VALUES.indexOf(viraValue);
     return CARD_VALUES[(idx + 1) % CARD_VALUES.length];
 };
 
+/**
+ * Calculates the absolute power of a card.
+ * Manilhas: 100 + suit power
+ * Normal cards: index in CARD_VALUES
+ */
 export const getCardPower = (card, vira) => {
+    if (!card || !vira) return -1;
     const manilhaValue = getManilhaValue(vira.value);
     const isManilha = card.value === manilhaValue;
     
     if (isManilha) {
-        // Manilhas are ranked by suit
-        return 100 + SUIT_POWER[card.suit];
+        return 100 + (SUIT_POWER[card.suit] || 0);
     }
     
-    // Normal cards ranked by CARD_VALUES index
     return CARD_VALUES.indexOf(card.value);
 };
 
+/**
+ * Resolves a single round.
+ * @returns {winner_pos: number, draw: boolean}
+ */
 export const resolveRound = (table, vira) => {
     if (!table || table.length === 0) return null;
     
@@ -42,7 +53,44 @@ export const resolveRound = (table, vira) => {
         }
     }
 
-    return isDraw ? { draw: true } : winner;
+    return isDraw ? { draw: true } : { winner_pos: winner.pos, player: winner.player };
+};
+
+/**
+ * Determines the winner of the hand based on round results.
+ * roundPoints: array of winners (0=draw, 1=ours, 2=theirs)
+ */
+export const determineHandWinner = (roundPoints) => {
+    const w = roundPoints; // [w1, w2, w3]
+    
+    // Check for clear 2-win majority
+    const team1Wins = w.filter(x => x === 1).length;
+    const team2Wins = w.filter(x => x === 2).length;
+    if (team1Wins >= 2) return 'ours';
+    if (team2Wins >= 2) return 'theirs';
+
+    // Draw logic (Empache)
+    if (w[0] === 0) {
+        if (w[1] === 1) return 'ours';
+        if (w[1] === 2) return 'theirs';
+        if (w[1] === 0) { // 1st and 2nd drew
+            if (w[2] === 1) return 'ours';
+            if (w[2] === 2) return 'theirs';
+            if (w[2] === 0) return 'draw'; // Triple draw
+        }
+    } else {
+        // 1st round was NOT a draw
+        if (w[1] === 0) return w[0] === 1 ? 'ours' : 'theirs'; // 2nd round drew, winner of 1st wins
+        if (w[2] === 0) return w[0] === 1 ? 'ours' : 'theirs'; // 3rd round drew, winner of 1st wins
+    }
+
+    // Best of 3 incomplete
+    if (w.length === 3) {
+        if (team1Wins > team2Wins) return 'ours';
+        if (team2Wins > team1Wins) return 'theirs';
+    }
+
+    return null;
 };
 
 export const createDeck = () => {
@@ -60,6 +108,8 @@ export const createDeck = () => {
 
 export const initializeTrucoState = (currentState, positions) => {
     const deck = createDeck();
+    const dealer = currentState.dealer !== undefined ? (currentState.dealer + 1) % 4 : 0;
+    
     return {
         ...currentState,
         positions: positions,
@@ -76,8 +126,12 @@ export const initializeTrucoState = (currentState, positions) => {
         handPoints: 1,
         roundPoints: [],
         currentRound: 0,
-        currentTurn: positions[0], // Player 0 starts
+        currentTurn: positions[(dealer + 1) % 4],
+        dealer: dealer,
         trucoChallenge: null,
-        winner: null
+        lastWinner: null,
+        winner: null,
+        status: 'playing'
     };
 };
+

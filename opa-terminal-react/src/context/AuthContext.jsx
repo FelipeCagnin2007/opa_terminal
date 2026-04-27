@@ -134,7 +134,6 @@ export const AuthProvider = ({ children }) => {
         table: 'usuarios', 
         filter: `id=eq.${user.id}` 
       }, (payload) => {
-        console.log("[AUTH] Profile Realtime Update:", payload.new);
         setProfile(payload.new);
       })
       .subscribe();
@@ -145,7 +144,6 @@ export const AuthProvider = ({ children }) => {
   }, [user?.id]);
 
   const logout = async () => {
-    console.log("[AUTH] Signing out...");
     await supabase.auth.signOut();
   };
 
