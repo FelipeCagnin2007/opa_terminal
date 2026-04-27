@@ -15,21 +15,29 @@ const SUIT_ICONS = {
   'Paus': { symbol: '♣', color: '#000000' } // Black
 };
 
-const Card = ({ card, size = 'md', isVira = false, className = '' }) => {
+const Card = ({ card, size = 'md', isManilha = false, className = '', showBadge = true }) => {
   const suitInfo = SUIT_ICONS[card.suit] || { symbol: '?', color: '#ffffff' };
   
   return (
-      <div className={`relative bg-white rounded-xl flex flex-col items-center justify-center font-black shadow-2xl border-2 overflow-hidden transform transition-all hover:scale-105 ${size === 'lg' ? 'w-20 h-32 md:w-24 md:h-36' : size === 'sm' ? 'w-12 h-18 md:w-16 md:h-24' : 'w-16 h-28 md:w-20 md:h-32'} ${isVira ? 'border-[#ffd700] shadow-[0_0_20px_rgba(255,215,0,0.8)]' : 'border-black/5'} ${className}`}>
-          {isVira && (
-              <div className="absolute top-0 inset-x-0 bg-[#ffd700] text-black text-[7px] md:text-[9px] font-black text-center py-0.5 tracking-widest uppercase z-10">
+      <div className={`relative bg-white rounded-xl flex flex-col items-center justify-center font-black shadow-2xl border-2 overflow-hidden transform transition-all hover:scale-105 ${size === 'lg' ? 'w-20 h-32 md:w-24 md:h-36' : size === 'sm' ? 'w-12 h-18 md:w-16 md:h-24' : 'w-16 h-28 md:w-20 md:h-32'} ${isManilha ? 'border-[#ffd700] shadow-[0_0_20px_rgba(255,215,0,0.8)]' : 'border-black/5'} ${className}`}>
+          {isManilha && showBadge && (
+              <div className="absolute top-0 inset-x-0 bg-[#ffd700] text-black text-[7px] md:text-[9px] font-black text-center py-0.5 tracking-widest uppercase z-10 animate-pulse">
                   MANILHA
               </div>
           )}
-          <span className={`absolute top-3 left-1 text-[10px] md:text-sm`} style={{ color: suitInfo.color }}>{suitInfo.symbol}</span>
-          <span className={`text-3xl md:text-5xl text-black leading-none ${isVira ? 'mt-2' : ''}`}>{card.value}</span>
-          <span className={`text-xl md:text-2xl mt-1`} style={{ color: suitInfo.color }}>{suitInfo.symbol}</span>
-          <span className={`absolute bottom-1 right-1 text-[10px] md:text-sm rotate-180`} style={{ color: suitInfo.color }}>{suitInfo.symbol}</span>
-          {isVira && <div className="absolute inset-0 bg-[#ffd700]/10 animate-pulse pointer-events-none" />}
+          <div className="absolute top-1 left-1 md:top-2 md:left-2 flex flex-col items-center">
+            <span className="text-[10px] md:text-sm leading-none" style={{ color: suitInfo.color }}>{card.value}</span>
+            <span className="text-[8px] md:text-xs leading-none" style={{ color: suitInfo.color }}>{suitInfo.symbol}</span>
+          </div>
+          
+          <span className={`text-4xl md:text-6xl text-black leading-none ${isManilha && showBadge ? 'mt-2' : ''}`}>{card.value}</span>
+          
+          <div className="absolute bottom-1 right-1 md:bottom-2 md:right-2 flex flex-col items-center rotate-180">
+            <span className="text-[10px] md:text-sm leading-none" style={{ color: suitInfo.color }}>{card.value}</span>
+            <span className="text-[8px] md:text-xs leading-none" style={{ color: suitInfo.color }}>{suitInfo.symbol}</span>
+          </div>
+          
+          {isManilha && <div className="absolute inset-0 bg-[#ffd700]/10 animate-pulse pointer-events-none" />}
       </div>
   );
 };
@@ -46,6 +54,8 @@ export function TrucoBoard({ roomId, profile, onExit }) {
   const { addReward } = usePet();
   const [hostId, setHostId] = useState(null);
   const hostIdRef = useRef(null);
+  // Deterministic host P2P peer ID — used for reliable sends from guest
+  const hostP2PIdRef = useRef(null);
 
   const [myPosition, setMyPosition] = useState(null);
   const myPositionRef = useRef(null);
@@ -58,6 +68,14 @@ export function TrucoBoard({ roomId, profile, onExit }) {
   const [isP2PReady, setIsP2PReady] = useState(false);
   const [isHost, setIsHost] = useState(false);
   const isHostRef = useRef(false);
+
+  /** Guest-only helper: send an action to the host with ACK + retry */
+  const sendActionToHost = (action) => {
+    const hostPeerId = hostP2PIdRef.current;
+    if (!hostPeerId) { console.warn('[GUEST] hostP2PId not set yet'); return; }
+    p2p.sendReliable(hostPeerId, { type: 'ACTION', action, from: profile.id })
+        .catch(err => console.error('[GUEST] sendReliable failed after retries:', err));
+  };
 
   // Sync Logic — always uses refs so it works correctly from stale closures
   const updateGameState = (newState) => {
@@ -182,6 +200,7 @@ export function TrucoBoard({ roomId, profile, onExit }) {
         } else {
             // 5b. GUEST FLOW — connect to host and wait for STATE_SYNC
             const hostP2PId = `truco_${roomId}_${hostIdFromDB}`;
+            hostP2PIdRef.current = hostP2PId; // store for reliable sends
             console.log('[P2P] Guest connecting to host:', hostP2PId);
             try {
                 await p2p.connect(hostP2PId);
@@ -498,9 +517,9 @@ export function TrucoBoard({ roomId, profile, onExit }) {
         addReward(2, 5);
     }
     
-    // If it was ME playing, and I'm not the host, send action to host
+    // If it was ME playing, and I'm not the host, send action to host reliably
     if (pos === myPositionRef.current && !isHostRef.current && gameState.mode !== 'solo') {
-        p2p.broadcast({ type: 'ACTION', action: { type: 'PLAY_CARD', card, pos }, from: profile.id });
+        sendActionToHost({ type: 'PLAY_CARD', card, pos });
     }
 
     if (newTable.length === maxTableSize) {
@@ -533,9 +552,9 @@ export function TrucoBoard({ roomId, profile, onExit }) {
 
     updateGameState(nextState);
 
-    // If client, send action to host
+    // If client, send action to host reliably
     if (!isHostRef.current && gameState.mode !== 'solo') {
-        p2p.broadcast({ type: 'ACTION', action: { type: 'CALL_TRUCO', from: profile.id }, from: profile.id });
+        sendActionToHost({ type: 'CALL_TRUCO', from: profile.id });
     }
   };
 
@@ -596,6 +615,7 @@ export function TrucoBoard({ roomId, profile, onExit }) {
         // Next is 12. If fold, give 9. (12-3)
         const pointsToAward = currentGameState.handPoints === 3 ? 1 : currentGameState.handPoints - 3;
         updatedScore[winningTeam] += pointsToAward; 
+        addReward(pointsToAward * 5, pointsToAward * 10);
 
         if (updatedScore.ours >= 12) newState.winner = 'ours';
         else if (updatedScore.theirs >= 12) newState.winner = 'theirs';
@@ -614,9 +634,9 @@ export function TrucoBoard({ roomId, profile, onExit }) {
 
     updateGameState(newState);
 
-    // If client, send to host
+    // If client, send to host reliably (with ACK + retry)
     if (!isHostRef.current && gameStateRef.current?.mode !== 'solo') {
-        p2p.broadcast({ type: 'ACTION', action: { type: 'TRUCO_RESPONSE', action, from: actingPlayerId }, from: profile.id });
+        sendActionToHost({ type: 'TRUCO_RESPONSE', action, from: actingPlayerId });
     }
   };
 
@@ -642,67 +662,75 @@ export function TrucoBoard({ roomId, profile, onExit }) {
   const botNames = ['BOT ALFA', 'BOT BETA', 'BOT GAMA', 'BOT DELTA'];
   
   return (
-    <div className="h-full flex flex-col font-terminal relative overflow-hidden bg-[#0a1e12] bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-[#113a22] via-[#0a1e12] to-black">
-      {/* HUD Removed from global top. Moved to Main Table Area bottom. */}
+    <div className="h-full flex flex-col font-terminal relative overflow-hidden bg-[#07130c]">
+      {/* Dynamic Background Effects */}
+      <div className="absolute inset-0 z-0 opacity-30 pointer-events-none">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,_#113a22_0%,_transparent_70%)]" />
+          <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/felt.png')] opacity-40 mix-blend-overlay" />
+          <div className="absolute top-0 left-0 w-full h-full bg-[conic-gradient(from_0deg_at_50%_50%,_transparent_0deg,_rgba(0,0,0,0.4)_180deg,_transparent_360deg)] animate-[spin_20s_linear_infinite]" />
+      </div>
 
       {/* Standalone Vira Slot */}
       {gameState.vira && (
-          <div className="absolute top-[30%] md:top-[120px] left-4 md:left-8 z-[70] transform scale-[0.8] md:scale-100 flex flex-col items-center gap-2">
-              <span className="bg-black/80 border-2 border-glow text-glow text-[10px] font-black px-4 py-1 rounded-full shadow-[0_0_15px_rgba(16,185,129,0.5)] whitespace-nowrap uppercase tracking-widest">A VIRA</span>
-              <Card card={gameState.vira} size="sm" isVira />
+          <div className="absolute top-4 right-4 md:top-24 md:left-8 z-[70] transform scale-[0.7] md:scale-100 flex flex-col items-center gap-2">
+              <div className="bg-black/60 border border-white/20 px-3 py-1 rounded-full backdrop-blur-md shadow-2xl">
+                <span className="text-white/80 text-[7px] md:text-[9px] font-black uppercase tracking-[0.2em]">A VIRA</span>
+              </div>
+              <Card card={gameState.vira} size="sm" showBadge={false} />
           </div>
       )}
 
       {/* Main Table Area */}
-      <div className="flex-grow relative flex items-center justify-center p-4 mt-8 md:mt-0 z-10 w-full h-full max-h-[1000px] max-w-[1200px] mx-auto">
+      <div className="flex-grow relative flex items-center justify-center p-4 z-10 w-full h-full">
           
-          {/* HUD - Placar (Bottom Left) */}
-          <div className="absolute bottom-4 md:bottom-8 left-4 md:left-8 z-[60]">
-               <div className="bg-black/40 border-2 border-white/10 px-4 py-2 md:px-6 md:py-3 rounded-2xl backdrop-blur-xl flex items-center gap-4 shadow-2xl">
-                  <div className="flex items-center gap-4 md:gap-6 px-1 md:px-2">
-                    <div className="flex flex-col items-center">
-                        <span className="text-[8px] md:text-[10px] text-white/50 font-black uppercase tracking-[0.2em] block mb-1">NÓS</span>
-                        <span className="text-xl md:text-2xl font-black text-glow leading-none">{gameState.score?.ours || 0}</span>
-                    </div>
-                    <div className="w-px h-6 md:h-8 bg-white/20" />
-                    <div className="flex flex-col items-center">
-                        <span className="text-[8px] md:text-[10px] text-white/50 font-black uppercase tracking-[0.2em] block mb-1">ELES</span>
-                        <span className="text-xl md:text-2xl font-black text-white/90 leading-none">{gameState.score?.theirs || 0}</span>
-                    </div>
+          {/* HUD - Placar (Top Left) */}
+          <div className="absolute top-6 left-6 z-[60] hidden md:block">
+               <div className="bg-black/60 border border-white/10 p-1 rounded-2xl backdrop-blur-xl shadow-2xl flex items-center gap-1">
+                  <div className="px-4 py-2 bg-glow/10 border border-glow/20 rounded-xl flex flex-col items-center min-w-[70px]">
+                      <span className="text-[8px] text-glow/60 font-black uppercase tracking-tighter">NÓS</span>
+                      <span className="text-2xl font-black text-white">{gameState.score?.ours || 0}</span>
                   </div>
-              </div>
+                  <div className="px-4 py-2 bg-white/5 border border-white/10 rounded-xl flex flex-col items-center min-w-[70px]">
+                      <span className="text-[8px] text-white/40 font-black uppercase tracking-tighter">ELES</span>
+                      <span className="text-2xl font-black text-white">{gameState.score?.theirs || 0}</span>
+                  </div>
+               </div>
+          </div>
+
+          {/* HUD - Mobile Placar (Bottom Left) */}
+          <div className="absolute bottom-24 left-4 z-[60] md:hidden">
+               <div className="bg-black/80 border border-white/20 px-3 py-2 rounded-xl backdrop-blur-lg flex items-center gap-4 text-xs font-black">
+                  <span className="text-glow">NÓS: {gameState.score?.ours || 0}</span>
+                  <div className="w-px h-3 bg-white/20" />
+                  <span className="text-white/60">ELES: {gameState.score?.theirs || 0}</span>
+               </div>
           </div>
 
           {/* HUD - Mãos Ganhas (Bottom Right) */}
-          <div className="absolute bottom-4 md:bottom-8 right-4 md:right-8 z-[60]">
-              <div className="flex flex-col items-center gap-2 bg-black/40 border-2 border-white/10 px-4 py-2 md:px-6 md:py-3 rounded-2xl backdrop-blur-xl shadow-2xl">
-                <span className="text-[7px] md:text-[9px] text-white/50 font-black uppercase tracking-[0.3em]">MÃOS GANHAS</span>
-                <div className="flex gap-3 md:gap-4 pt-1">
+          <div className="absolute bottom-24 right-4 md:bottom-8 md:right-8 z-[60]">
+               <div className="flex gap-2 p-2 bg-black/40 rounded-xl backdrop-blur-md border border-white/5">
                     {[0, 1, 2].map(i => {
                         const winner = gameState.roundPoints?.[i];
                         return (
-                            <div key={i} className={`w-3 h-3 md:w-4 md:h-4 rounded-sm rotate-45 flex items-center justify-center transition-all duration-300 border-2 ${winner === 1 ? 'bg-glow border-glow shadow-[0_0_15px_rgba(16,185,129,0.8)] scale-125 z-10' : winner === 2 ? 'bg-cyber-blue border-cyber-blue shadow-[0_0_15px_rgba(56,189,248,0.8)] scale-125 z-10' : 'border-white/20 bg-black/50'}`}>
-                                {winner !== undefined && <div className="w-1 md:w-1.5 h-1 md:h-1.5 bg-white rounded-full shadow-lg" />}
-                            </div>
+                            <div key={i} className={`w-2 h-2 md:w-3 md:h-3 rounded-full transition-all duration-500 ${winner === 1 ? 'bg-glow shadow-[0_0_10px_#10b981]' : winner === 2 ? 'bg-cyber-blue shadow-[0_0_10px_#38bdf8]' : 'bg-white/10'}`} />
                         );
                     })}
-                </div>
-              </div>
+               </div>
           </div>
 
-          {/* HUD - Hand Points (Top Center) */}
-          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[60]">
-               <div className="bg-glow/20 border-2 border-glow/50 px-4 py-2 md:px-6 md:py-3 rounded-2xl flex items-center gap-2 md:gap-3 shadow-[0_0_20px_rgba(16,185,129,0.2)] backdrop-blur-md">
-                 <div className="w-1.5 h-1.5 md:w-2 md:h-2 bg-glow rounded-full animate-blink shadow-[0_0_10px_rgba(16,185,129,1)]" />
-                 <span className="text-[10px] md:text-xs font-black text-white uppercase tracking-[0.2em] drop-shadow-md">{gameState.handPoints || 1} PONTOS DA MÃO</span>
+          {/* HUD - Hand Points (Center Top) */}
+          <div className="absolute top-6 left-1/2 -translate-x-1/2 z-[60]">
+               <div className="bg-gradient-to-b from-black/80 to-black/40 border border-white/10 px-6 py-2 rounded-2xl flex items-center gap-3 backdrop-blur-xl shadow-2xl">
+                 <div className="w-1.5 h-1.5 bg-glow rounded-full animate-pulse shadow-[0_0_8px_#10b981]" />
+                 <span className="text-[10px] font-black text-white/90 uppercase tracking-[0.25em]">{gameState.handPoints || 1} PONTOS</span>
               </div>
           </div>
         
-        {/* Decorative Casino Ring */}
-        <div className="absolute inset-2 md:inset-12 border-2 border-white/5 rounded-full pointer-events-none" />
-
-        {/* Center Mesa */}
-        <div className="w-[280px] h-[280px] md:w-[600px] md:h-[600px] rounded-full border-4 border-white/10 bg-black/30 relative flex items-center justify-center backdrop-blur-sm shadow-[inset_0_0_120px_rgba(0,0,0,0.9)] z-20">
+        {/* Center Mesa (The Felt) */}
+        <div className="w-[300px] h-[300px] md:w-[650px] md:h-[650px] rounded-full border-[10px] border-black/40 bg-[#113a22] relative flex items-center justify-center shadow-[inset_0_0_150px_rgba(0,0,0,0.8),_0_20px_50px_rgba(0,0,0,0.4)] z-20 overflow-hidden">
+            <div className="absolute inset-0 opacity-20 bg-[url('https://www.transparenttextures.com/patterns/black-linen.png')]" />
+            <div className="absolute inset-0 border-[1px] border-white/5 rounded-full" />
+            <div className="absolute inset-10 border-[1px] border-white/5 rounded-full" />
 
             {/* Cards on Table */}
             <AnimatePresence>
@@ -724,10 +752,11 @@ export function TrucoBoard({ roomId, profile, onExit }) {
                         <motion.div 
                             initial={{ scale: 0.5, opacity: 0, rotate: rotations[relativePlayPos] + 45 }}
                             animate={{ scale: 1, opacity: 1, x: offsets[relativePlayPos]?.x || 0, y: offsets[relativePlayPos]?.y || 0, rotate: rotations[relativePlayPos] }}
+                            transition={{ type: 'spring', damping: 15, stiffness: 200 }}
                             key={idx}
-                            className="absolute z-30 drop-shadow-2xl"
+                            className="absolute z-30 drop-shadow-[0_20px_50px_rgba(0,0,0,0.5)]"
                         >
-                            <Card card={play.card} size="md" isVira={isPlayManilha} />
+                            <Card card={play.card} size="md" isManilha={isPlayManilha} />
                         </motion.div>
                     );
                 })}
@@ -754,20 +783,25 @@ export function TrucoBoard({ roomId, profile, onExit }) {
             ];
 
             return (
-                <div key={pos} className={`absolute ${posStyles[relativePos]} flex flex-col items-center gap-2 z-40 transition-all duration-300`}>
-                    <div className={`w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center p-1 transition-all duration-300 ${activeTurn ? 'bg-glow border-2 border-white shadow-[0_0_30px_rgba(16,185,129,0.8)] scale-110' : 'bg-black/60 border-2 border-white/20'}`}>
-                         <div className="w-full h-full rounded-full bg-[#0a1e12] flex items-center justify-center shadow-inner">
-                            {isCPU ? <Cpu className={`w-8 h-8 ${activeTurn ? 'text-glow' : 'text-white/50'}`} /> : <User className={`w-8 h-8 ${activeTurn ? 'text-glow' : 'text-white/50'}`} />}
-                         </div>
+                <div key={pos} className={`absolute ${posStyles[relativePos]} flex flex-col items-center gap-3 z-40 transition-all duration-500 translate-y-0`}>
+                    <div className="relative">
+                        <div className={`w-14 h-14 md:w-20 md:h-20 rounded-full flex items-center justify-center p-1 transition-all duration-300 ${activeTurn ? 'bg-gradient-to-br from-glow to-white shadow-[0_0_40px_rgba(16,185,129,0.6)] scale-110' : 'bg-black/60 border border-white/10'}`}>
+                             <div className="w-full h-full rounded-full bg-neutral-900 flex items-center justify-center overflow-hidden border border-white/5">
+                                {isCPU ? <Cpu className={`w-6 h-6 md:w-8 md:h-8 ${activeTurn ? 'text-glow animate-pulse' : 'text-white/30'}`} /> : <User className={`w-6 h-6 md:w-8 md:h-8 ${activeTurn ? 'text-glow animate-pulse' : 'text-white/30'}`} />}
+                             </div>
+                        </div>
+                        {activeTurn && (
+                            <div className="absolute -inset-2 border-2 border-glow/50 rounded-full animate-[ping_2s_cubic-bezier(0,0,0.2,1)_infinite] pointer-events-none" />
+                        )}
                     </div>
-                    <div className={`flex flex-col items-center px-4 py-2 rounded-xl backdrop-blur-md shadow-lg border-2 ${activeTurn ? 'bg-glow/20 border-glow' : 'bg-black/80 border-white/10'}`}>
-                        <span className="text-[10px] font-black w-full text-center text-white/50 tracking-[0.2em] mb-1 leading-none uppercase">
-                            {isUser ? 'TU' : (isCPU ? botNames[pos] : 'ADVERSÁRIO')}
+                    <div className={`flex flex-col items-center px-4 py-1.5 rounded-2xl backdrop-blur-xl border ${activeTurn ? 'bg-glow/10 border-glow/40 shadow-[0_0_20px_rgba(16,185,129,0.2)]' : 'bg-black/60 border-white/10'}`}>
+                        <span className={`text-[8px] md:text-[10px] font-black tracking-widest uppercase ${activeTurn ? 'text-glow' : 'text-white/40'}`}>
+                            {isUser ? 'ME' : (isCPU ? botNames[pos] : 'GUEST')}
                         </span>
                         {handCount > 0 && (
-                            <div className="flex gap-1">
+                            <div className="flex gap-1 mt-1">
                                 {[...Array(handCount)].map((_, i) => (
-                                    <div key={i} className={`w-3 h-4 rounded-[2px] border ${isUser ? 'bg-glow border-white' : 'bg-neutral-800 border-neutral-600'}`} />
+                                    <div key={i} className={`w-2 h-3 md:w-3 md:h-4 rounded-[1px] ${isUser ? 'bg-glow shadow-[0_0_10px_#10b981]' : 'bg-white/20'}`} />
                                 ))}
                             </div>
                         )}
@@ -784,7 +818,7 @@ export function TrucoBoard({ roomId, profile, onExit }) {
         <div className="absolute top-0 -translate-y-1/2 left-1/2 -translate-x-1/2 z-[200]">
             <Button 
                 onClick={callTruco} 
-                className="bg-glow text-black font-black px-12 py-4 rounded-2xl border-b-4 border-black/40 hover:-translate-y-1 active:translate-y-0 active:border-b-0 transition-all text-sm tracking-[0.3em] uppercase hover:shadow-[0_0_30px_rgba(16,185,129,0.8)] disabled:opacity-20 disabled:grayscale disabled:shadow-none disabled:hover:translate-y-0"
+                className="bg-gradient-to-b from-glow to-[#0d9488] text-black font-black px-10 md:px-14 py-4 rounded-full border-b-4 border-black/40 hover:-translate-y-1 active:translate-y-0 active:border-b-0 transition-all text-xs md:text-sm tracking-[0.3em] uppercase shadow-[0_20px_40px_rgba(0,0,0,0.4),_0_0_30px_rgba(16,185,129,0.4)] disabled:opacity-30 disabled:grayscale disabled:shadow-none"
                 disabled={(() => {
                     if (!isMyTurn) return true;
                     if (gameState.trucoChallenge?.status === 'pending') return true;
@@ -812,14 +846,14 @@ export function TrucoBoard({ roomId, profile, onExit }) {
                             initial={{ opacity: 0, y: 50 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: 50 }}
-                            whileHover={isMyTurn ? { y: -20, scale: 1.1 } : {}}
-                            whileTap={isMyTurn ? { scale: 0.95 } : {}}
+                            whileHover={isMyTurn ? { y: -30, scale: 1.15 } : {}}
+                            whileTap={isMyTurn ? { scale: 0.9 } : {}}
                             onClick={() => playMyCard(idx)}
                             disabled={!isMyTurn}
                             key={card.value + card.suit}
-                            className={`group relative outline-none transition-all duration-300 ${!isMyTurn ? 'opacity-50 grayscale scale-95' : 'hover:z-50 cursor-pointer drop-shadow-2xl'}`}
+                            className={`group relative outline-none transition-all duration-300 ${!isMyTurn ? 'opacity-50 grayscale scale-95' : 'hover:z-50 cursor-pointer drop-shadow-[0_10px_30px_rgba(0,0,0,0.5)]'}`}
                         >
-                            <Card card={card} size="lg" isVira={isHandManilha} className={`${isMyTurn ? 'border-glow/50' : 'border-white/5'}`} />
+                            <Card card={card} size="lg" isManilha={isHandManilha} className={`${isMyTurn ? 'border-glow/50 ring-2 ring-white/5' : 'border-white/5'}`} />
                             {isMyTurn && (
                                 <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 bg-black border border-white/20 text-white text-[8px] font-black px-3 py-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap uppercase tracking-widest pointer-events-none z-10 shadow-lg">
                                     JOGAR CARTA

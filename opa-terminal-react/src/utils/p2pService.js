@@ -22,17 +22,29 @@ const ICE_SERVERS = [
     },
 ];
 
+// ─── Reliable Delivery Constants ────────────────────────────────────────────
+const ACK_TIMEOUT_MS   = 3000;  // wait 3s for ACK before retrying
+const MAX_RETRIES      = 5;     // give up after 5 attempts
+const RETRY_BACKOFF_MS = 1500;  // base delay between retries (doubles each attempt)
+
 class P2PService {
     constructor() {
-        this.peer = null;
+        this.peer        = null;
         this.connections = {};
-        this.myPeerId = null;
+        this.myPeerId    = null;
 
         // Handler lists
-        this._onMessageHandlers = [];
+        this._onMessageHandlers        = [];
         this._onConnectionOpenHandlers = [];
-        this._onConnectionCloseHandlers = [];
+        this._onConnectionCloseHandlers= [];
+
+        // ── Reliable delivery ──────────────────────────────────────────────
+        // Map of msgId → { payload, targetPeerId, retries, timer }
+        this._pendingAcks = {};
+        this._msgCounter  = 0;
     }
+
+    // ─── Initialization ─────────────────────────────────────────────────────────
 
     /**
      * Initialize the local Peer with the given custom ID.
@@ -118,9 +130,7 @@ class P2PService {
 
     /**
      * Internal: sets up event listeners on a DataConnection.
-     * @param {import('peerjs').DataConnection} conn
-     * @param {Function} [resolveOnOpen] - optional promise resolver
-     * @param {Function} [rejectOnError] - optional promise rejector
+     * Handles transparent ACK messages before forwarding to app handlers.
      */
     _setupConnection(conn, resolveOnOpen, rejectOnError) {
         const openTimeout = setTimeout(() => {
@@ -132,6 +142,9 @@ class P2PService {
             console.log('[P2P] Connection OPEN with:', conn.peer);
             this.connections[conn.peer] = conn;
 
+            // Flush any queued reliable messages for this peer
+            this._flushPendingAcks(conn.peer);
+
             // Notify all onConnectionOpen handlers (used by host to send initial state)
             this._onConnectionOpenHandlers.forEach((h) => h(conn.peer));
 
@@ -139,6 +152,26 @@ class P2PService {
         });
 
         conn.on('data', (data) => {
+            // ── Intercept ACK messages ─────────────────────────────────────
+            if (data?.__ack) {
+                this._handleAck(data.__ack);
+                return;
+            }
+
+            // ── Auto-ACK any reliable message ─────────────────────────────
+            if (data?.__msgId !== undefined) {
+                // Send ACK back to sender
+                const ackConn = this.connections[conn.peer];
+                if (ackConn?.open) {
+                    ackConn.send({ __ack: data.__msgId });
+                }
+                // Strip transport metadata before delivering to app
+                const { __msgId, ...payload } = data;
+                this._onMessageHandlers.forEach((h) => h(payload, conn.peer));
+                return;
+            }
+
+            // Plain (non-reliable) message — deliver as-is
             this._onMessageHandlers.forEach((h) => h(data, conn.peer));
         });
 
@@ -155,17 +188,16 @@ class P2PService {
         });
     }
 
+    // ─── Send helpers ────────────────────────────────────────────────────────────
 
-    // ─── Send helpers ───────────────────────────────────────────────────────────
-
-    /** Send data to all open connections */
+    /** Send data to all open connections (fire-and-forget, no ACK) */
     broadcast(data) {
         Object.values(this.connections).forEach((conn) => {
             if (conn.open) conn.send(data);
         });
     }
 
-    /** Send data to a specific peer */
+    /** Send data to a specific peer (fire-and-forget, no ACK) */
     sendTo(peerId, data) {
         const conn = this.connections[peerId];
         if (conn?.open) {
@@ -175,7 +207,79 @@ class P2PService {
         }
     }
 
-    // ─── Event subscriptions ────────────────────────────────────────────────────
+    /**
+     * Send data to a specific peer WITH guaranteed delivery (ACK + retry).
+     * Use this for critical game actions that MUST reach the host.
+     *
+     * Returns a Promise that resolves when the host ACKs, or rejects after MAX_RETRIES.
+     */
+    sendReliable(peerId, data) {
+        return new Promise((resolve, reject) => {
+            const msgId   = `${Date.now()}_${++this._msgCounter}`;
+            const payload = { ...data, __msgId: msgId };
+
+            const attempt = (retryCount) => {
+                const conn = this.connections[peerId];
+                if (conn?.open) {
+                    console.log(`[P2P] sendReliable → ${peerId} (attempt ${retryCount + 1}/${MAX_RETRIES}) msgId:`, msgId);
+                    conn.send(payload);
+                } else {
+                    console.warn(`[P2P] sendReliable: no open connection to ${peerId}, queuing for reconnect (attempt ${retryCount + 1})`);
+                }
+
+                const timer = setTimeout(() => {
+                    // ACK not received in time
+                    if (retryCount + 1 >= MAX_RETRIES) {
+                        delete this._pendingAcks[msgId];
+                        console.error(`[P2P] sendReliable: gave up after ${MAX_RETRIES} attempts for msgId:`, msgId);
+                        reject(new Error(`[P2P] No ACK after ${MAX_RETRIES} retries`));
+                    } else {
+                        const backoff = RETRY_BACKOFF_MS * Math.pow(1.5, retryCount);
+                        setTimeout(() => attempt(retryCount + 1), backoff);
+                    }
+                }, ACK_TIMEOUT_MS);
+
+                this._pendingAcks[msgId] = { payload, peerId, timer, resolve, reject };
+            };
+
+            attempt(0);
+        });
+    }
+
+    /**
+     * Called when an ACK arrives for a previously sent reliable message.
+     */
+    _handleAck(msgId) {
+        const pending = this._pendingAcks[msgId];
+        if (pending) {
+            clearTimeout(pending.timer);
+            delete this._pendingAcks[msgId];
+            console.log('[P2P] ACK received for msgId:', msgId);
+            pending.resolve();
+        }
+    }
+
+    /**
+     * On reconnect, re-send any pending reliable messages for a peer.
+     */
+    _flushPendingAcks(peerId) {
+        const conn = this.connections[peerId];
+        if (!conn?.open) return;
+
+        Object.entries(this._pendingAcks).forEach(([msgId, entry]) => {
+            if (entry.peerId === peerId) {
+                console.log('[P2P] Flushing pending reliable msg after reconnect, msgId:', msgId);
+                clearTimeout(entry.timer);
+                const timer = setTimeout(() => {
+                    // Still no ACK — will be handled by the outer retry logic
+                }, ACK_TIMEOUT_MS);
+                this._pendingAcks[msgId].timer = timer;
+                conn.send(entry.payload);
+            }
+        });
+    }
+
+    // ─── Event subscriptions ─────────────────────────────────────────────────────
 
     /** Called whenever ANY message is received from ANY peer */
     onMessage(handler) {
@@ -203,22 +307,26 @@ class P2PService {
         };
     }
 
-    // ─── Lifecycle ──────────────────────────────────────────────────────────────
+    // ─── Lifecycle ───────────────────────────────────────────────────────────────
 
     _destroyPeer() {
+        // Cancel all pending ACK timers
+        Object.values(this._pendingAcks).forEach(({ timer }) => clearTimeout(timer));
+        this._pendingAcks = {};
+
         try {
             this.peer?.destroy();
         } catch (_) { /* ignore */ }
-        this.peer = null;
+        this.peer        = null;
         this.connections = {};
-        this.myPeerId = null;
+        this.myPeerId    = null;
     }
 
     /** Fully clears all state and handlers — call on component unmount */
     destroy() {
         this._destroyPeer();
-        this._onMessageHandlers = [];
-        this._onConnectionOpenHandlers = [];
+        this._onMessageHandlers         = [];
+        this._onConnectionOpenHandlers  = [];
         this._onConnectionCloseHandlers = [];
         console.log('[P2P] Destroyed.');
     }
