@@ -155,6 +155,7 @@ class P2PService {
         });
     }
 
+
     // ─── Send helpers ───────────────────────────────────────────────────────────
 
     /** Send data to all open connections */
