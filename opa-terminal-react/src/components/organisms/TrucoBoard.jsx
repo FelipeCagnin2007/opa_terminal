@@ -83,8 +83,21 @@ export function TrucoBoard({ roomId, profile, onExit }) {
     if (!newState.mode || newState.mode === 'solo') return;
 
     if (isHostRef.current) {
-        // Host broadcasts every state change to all connected guests
+        // 1. P2P Broadcast (Fastest)
         p2p.broadcast({ type: 'STATE_UPDATE', gameState: newState });
+
+        // 2. Supabase Fallback (Reliability) — only for critical status/turn changes to avoid overload
+        // We update the DB so guests who missed the P2P packet can catch up via Supabase
+        const isCriticalUpdate = newState.table?.length === 0 || newState.currentRound === 0 || newState.trucoChallenge?.status === 'pending';
+        if (isCriticalUpdate || Math.random() < 0.2) { // also randomize some non-critical ones for safety
+            supabase
+                .from('game_rooms')
+                .update({ game_state: newState })
+                .eq('id', roomId)
+                .then(({ error }) => {
+                    if (error) console.error('[HOST] Fallback DB update failed:', error);
+                });
+        }
     }
   };
 
@@ -196,31 +209,49 @@ export function TrucoBoard({ roomId, profile, onExit }) {
             // Set initial state (room still 'waiting', no hands dealt yet — just show waiting screen)
             setGameState(roomData.game_state);
             setIsP2PReady(true);
-
         } else {
             // 5b. GUEST FLOW — connect to host and wait for STATE_SYNC
             const hostP2PId = `truco_${roomId}_${hostIdFromDB}`;
-            hostP2PIdRef.current = hostP2PId; // store for reliable sends
+            hostP2PIdRef.current = hostP2PId;
             console.log('[P2P] Guest connecting to host:', hostP2PId);
             try {
                 await p2p.connect(hostP2PId);
                 console.log('[P2P] Data channel open — sending REQUEST_STATE to host');
                 p2p.sendTo(hostP2PId, { type: 'REQUEST_STATE', from: profile.id });
             } catch (err) {
-                console.error('[P2P] P2P connection failed — falling back to Supabase DB read:', err);
-                // Fallback: read the current playing state directly from DB
-                const { data: freshRoom } = await supabase
-                    .from('game_rooms')
-                    .select('game_state')
-                    .eq('id', roomId)
-                    .single();
-                if (freshRoom?.game_state && !cleanedUp) {
-                    console.log('[P2P] Fallback: loading state from Supabase DB directly');
-                    setGameState(freshRoom.game_state);
-                    setIsP2PReady(true);
-                }
+                console.error('[P2P] P2P connection failed — falling back to DB poll:', err);
             }
         }
+
+        // 6. SHARED FALLBACK: Subscribe to Supabase Postgres Changes
+        // This is the safety net if P2P drops a packet
+        console.log('[SYNC] Subscribing to Supabase Realtime fallback...');
+        supabaseChannel = supabase
+            .channel(`truco_sync_${roomId}`)
+            .on(
+                'postgres_changes',
+                { event: 'UPDATE', schema: 'public', table: 'game_rooms', filter: `id=eq.${roomId}` },
+                (payload) => {
+                    if (cleanedUp) return;
+                    const dbGS = payload.new?.game_state;
+                    if (!dbGS) return;
+
+                    // If we are the guest, and the DB has a newer state than our local one (different table length or turn)
+                    // we apply it as a fallback.
+                    const currentLocalGS = gameStateRef.current;
+                    const isNewer = !currentLocalGS || 
+                                     dbGS.currentTurn !== currentLocalGS.currentTurn || 
+                                     dbGS.table?.length !== currentLocalGS.table?.length ||
+                                     dbGS.handPoints !== currentLocalGS.handPoints;
+
+                    if (isNewer) {
+                        console.log('[SYNC] Supabase Fallback State applied');
+                        setGameState(dbGS);
+                        setIsP2PReady(true);
+                    }
+                }
+            )
+            .subscribe();
     };
 
     initGame();
@@ -342,7 +373,9 @@ export function TrucoBoard({ roomId, profile, onExit }) {
     
     // 2. Handle Normal Moves
     const isCpuTurn = gameState.currentTurn && gameState.currentTurn.toString().startsWith('CPU_');
-    if (isCpuTurn && gameState.trucoChallenge?.status !== 'pending') {
+    const amHost = hostId === profile?.id;
+    
+    if (isCpuTurn && gameState.trucoChallenge?.status !== 'pending' && (amHost || gameState.mode === 'solo')) {
         const cpuId = gameState.currentTurn;
         const challengeId = `MOVE_${cpuId}_${gameState.table.length}`;
         
@@ -437,8 +470,9 @@ export function TrucoBoard({ roomId, profile, onExit }) {
         newState.currentTurn = 'WAITING_RESOLUTION';
     }
 
-    // Update local state immediately to prevent double clicks
-    setGameState(newState);
+    // IMPORTANT: Use updateGameState so the Host broadcasts the card play immediately
+    const stateToBroadcast = { ...newState };
+    updateGameState(stateToBroadcast);
 
     if (newTable.length === maxTableSize) {
         // HOST AUTHORITY: only host resolves rounds to avoid race conditions
@@ -520,7 +554,8 @@ export function TrucoBoard({ roomId, profile, onExit }) {
     }
     
     // If it was ME playing, and I'm not the host, send action to host reliably
-    if (pos === myPositionRef.current && !isHostRef.current && gameState.mode !== 'solo') {
+    const currentGS = gameStateRef.current;
+    if (pos === myPositionRef.current && !isHostRef.current && currentGS?.mode !== 'solo') {
         sendActionToHost({ type: 'PLAY_CARD', card, pos });
     }
 
@@ -531,18 +566,18 @@ export function TrucoBoard({ roomId, profile, onExit }) {
 
 
   const callTruco = async () => {
-    const gameState = gameStateRef.current;
-    if (!gameState) return;
-    if (!isMyTurn || gameState.trucoChallenge) return;
+    const currentGS = gameStateRef.current;
+    if (!currentGS) return;
+    if (!isMyTurn || currentGS.trucoChallenge) return;
     
-    const nextPoints = gameState.handPoints === 1 ? 3 : gameState.handPoints + 3;
+    const nextPoints = currentGS.handPoints === 1 ? 3 : currentGS.handPoints + 3;
     if (nextPoints > 12) return;
 
     const pos = myPositionRef.current;
     const challengerTeam = (pos === 0 || pos === 2) ? 'ours' : 'theirs';
     
     const nextState = {
-        ...gameState,
+        ...currentGS,
         handPoints: nextPoints,
         trucoChallenge: {
             challenger: profile.id,
@@ -555,7 +590,7 @@ export function TrucoBoard({ roomId, profile, onExit }) {
     updateGameState(nextState);
 
     // If client, send action to host reliably
-    if (!isHostRef.current && gameState.mode !== 'solo') {
+    if (!isHostRef.current && currentGS.mode !== 'solo') {
         sendActionToHost({ type: 'CALL_TRUCO', from: profile.id });
     }
   };
