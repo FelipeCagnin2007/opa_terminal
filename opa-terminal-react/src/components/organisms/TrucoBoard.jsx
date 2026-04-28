@@ -447,6 +447,12 @@ export function TrucoBoard({ roomId, profile, onExit }) {
                 const s = gameStateRef.current;
                 if (!s || s.table.length === 0) return; // already resolved
 
+                // RESOLUTION LOGIC — ONLY RUN BY HOST IN MULTIPLAYER
+                if (!isHostRef.current && gameState.mode !== 'solo') {
+                    console.log('[GUEST] Waiting for host to resolve round...');
+                    return;
+                }
+
                 const result = resolveRound(s.table, s.vira);
                 
                 const nextRound    = (s.currentRound || 0);
@@ -456,8 +462,6 @@ export function TrucoBoard({ roomId, profile, onExit }) {
                 
                 if (result.draw) {
                     roundWinners[nextRound] = 0;
-                    // Draw: the player who opened this round opens the next one too
-                    // (the one who played first in the table array)
                     nextTurnId    = s.table[0].player;
                     roundResultTeam = 'draw';
                 } else {
@@ -480,7 +484,6 @@ export function TrucoBoard({ roomId, profile, onExit }) {
                 };
 
                 if (handWinner === 'draw') {
-                    // Triple draw — no points awarded, start fresh hand
                     const freshState = initializeTrucoState(
                         { score: finalState.score, dealer: s.dealer },
                         finalState.positions
@@ -499,7 +502,6 @@ export function TrucoBoard({ roomId, profile, onExit }) {
                         finalState.status = 'finished';
                         if (finalState.winner === 'ours') addReward(100, 200);
                     } else {
-                        // Start fresh hand, keep score
                         const freshState = initializeTrucoState(
                             { score: finalState.score, dealer: s.dealer },
                             finalState.positions
@@ -509,7 +511,7 @@ export function TrucoBoard({ roomId, profile, onExit }) {
                 }
 
                 updateGameState(finalState);
-            }, 1500);
+            }, 1800); // Slightly longer delay for better feedback
         }
     }
 
@@ -597,42 +599,43 @@ export function TrucoBoard({ roomId, profile, onExit }) {
         };
     } else {
         // action === 'FOLD'
-        const challengerId = currentGameState.trucoChallenge.challenger;
-        const challengerPosStr = Object.keys(currentGameState.positions).find(k => currentGameState.positions[k] == challengerId);
-        const challengerPos = parseInt(challengerPosStr);
-        
-        const winningTeam = (challengerPos === 0 || challengerPos === 2) ? 'ours' : 'theirs';
-        const updatedScore = { ...currentGameState.score };
-        // If team Folds, the other team gets the CURRENT value minus the boost (if it was a boost)
-        // Actually, if someone says TRUCO (3 points) and I fold, they get 1 point.
-        // If they say SEIS (6 points) and I fold, they get 3 points.
-        // So it's the points BEFORE the current challenge boost.
-        // In my logic, gameState.handPoints is updated BEFORE response.
-        // So we give handPoints - 2? or handPoints - 3?
-        // Default starts at 1. First truco goes to 3. If fold, give 1. (3-2)
-        // Next is 6. If fold, give 3. (6-3)
-        // Next is 9. If fold, give 6. (9-3)
-        // Next is 12. If fold, give 9. (12-3)
-        const pointsToAward = currentGameState.handPoints === 3 ? 1 : currentGameState.handPoints - 3;
-        updatedScore[winningTeam] += pointsToAward; 
-        addReward(pointsToAward * 5, pointsToAward * 10);
+        const winningTeam = currentGameState.trucoChallenge.challengerTeam;
+        const folderId = actingPlayerId;
+        const nextState = { 
+            ...currentGameState, 
+            trucoChallenge: { ...currentGameState.trucoChallenge, status: 'folded', folder: folderId },
+            lastWinner: winningTeam 
+        };
+        updateGameState(nextState);
 
-        if (updatedScore.ours >= 12) newState.winner = 'ours';
-        else if (updatedScore.theirs >= 12) newState.winner = 'theirs';
+        setTimeout(() => {
+            if (!isHostRef.current && currentGameState.mode !== 'solo') return;
+            
+            const updatedScore = { ...currentGameState.score };
+            const pointsToAward = currentGameState.handPoints === 3 ? 1 : currentGameState.handPoints - 3;
+            updatedScore[winningTeam] += pointsToAward; 
+            addReward(pointsToAward * 5, pointsToAward * 10);
 
-        if (newState.winner) {
-            newState.status = 'finished';
-            if (newState.winner === 'ours') addReward(100, 200);
-        } else {
-            const freshState = initializeTrucoState({ 
-                score: updatedScore,
-                dealer: currentGameState.dealer 
-            }, currentGameState.positions);
-            newState = { ...currentGameState, ...freshState };
-        }
+            let finalState = { ...nextState };
+            finalState.score = updatedScore; // Ensure score is updated in final state
+            
+            if (updatedScore.ours >= 12) finalState.winner = 'ours';
+            else if (updatedScore.theirs >= 12) finalState.winner = 'theirs';
+
+            if (finalState.winner) {
+                finalState.status = 'finished';
+                if (finalState.winner === 'ours') addReward(100, 200);
+            } else {
+                const freshState = initializeTrucoState({ 
+                    score: updatedScore,
+                    dealer: currentGameState.dealer 
+                }, currentGameState.positions);
+                finalState = { ...finalState, ...freshState };
+            }
+            updateGameState(finalState);
+        }, 2000);
+        return;
     }
-
-    updateGameState(newState);
 
     // If client, send to host reliably (with ACK + retry)
     if (!isHostRef.current && gameStateRef.current?.mode !== 'solo') {
@@ -670,41 +673,34 @@ export function TrucoBoard({ roomId, profile, onExit }) {
           <div className="absolute top-0 left-0 w-full h-full bg-[conic-gradient(from_0deg_at_50%_50%,_transparent_0deg,_rgba(0,0,0,0.4)_180deg,_transparent_360deg)] animate-[spin_20s_linear_infinite]" />
       </div>
 
-      {/* Standalone Vira Slot */}
+      {/* Standalone Vira Slot & Scoreboard (Top Right) */}
       {gameState.vira && (
-          <div className="absolute top-4 right-4 md:top-24 md:left-8 z-[70] transform scale-[0.7] md:scale-100 flex flex-col items-center gap-2">
-              <div className="bg-black/60 border border-white/20 px-3 py-1 rounded-full backdrop-blur-md shadow-2xl">
-                <span className="text-white/80 text-[7px] md:text-[9px] font-black uppercase tracking-[0.2em]">A VIRA</span>
+          <div className="absolute top-4 right-4 md:top-6 md:right-6 z-[70] flex flex-row-reverse items-start gap-4 scale-[0.75] md:scale-100 origin-top-right">
+              {/* Scoreboard Integrated */}
+               <div className="bg-black/80 border-2 border-white/10 p-1 rounded-2xl backdrop-blur-xl shadow-2xl flex items-center gap-1 h-fit">
+                  <div className="px-4 py-2 bg-glow/10 border border-glow/20 rounded-xl flex flex-col items-center min-w-[65px]">
+                      <span className="text-[7px] text-glow/60 font-black uppercase tracking-tighter">NÓS</span>
+                      <span className="text-xl font-black text-white">{gameState.score?.ours || 0}</span>
+                  </div>
+                  <div className="px-4 py-2 bg-white/5 border border-white/10 rounded-xl flex flex-col items-center min-w-[65px]">
+                      <span className="text-[7px] text-white/40 font-black uppercase tracking-tighter">ELES</span>
+                      <span className="text-xl font-black text-white">{gameState.score?.theirs || 0}</span>
+                  </div>
+               </div>
+
+              <div className="flex flex-col items-center gap-1.5">
+                <div className="bg-black/60 border border-white/20 px-2.5 py-1 rounded-full backdrop-blur-md shadow-xl">
+                    <span className="text-white/80 text-[7px] md:text-[8px] font-black uppercase tracking-[0.2em]">A VIRA</span>
+                </div>
+                <Card card={gameState.vira} size="sm" showBadge={false} />
               </div>
-              <Card card={gameState.vira} size="sm" showBadge={false} />
           </div>
       )}
 
       {/* Main Table Area */}
       <div className="flex-grow relative flex items-center justify-center p-4 z-10 w-full h-full">
           
-          {/* HUD - Placar (Top Left) */}
-          <div className="absolute top-6 left-6 z-[60] hidden md:block">
-               <div className="bg-black/60 border border-white/10 p-1 rounded-2xl backdrop-blur-xl shadow-2xl flex items-center gap-1">
-                  <div className="px-4 py-2 bg-glow/10 border border-glow/20 rounded-xl flex flex-col items-center min-w-[70px]">
-                      <span className="text-[8px] text-glow/60 font-black uppercase tracking-tighter">NÓS</span>
-                      <span className="text-2xl font-black text-white">{gameState.score?.ours || 0}</span>
-                  </div>
-                  <div className="px-4 py-2 bg-white/5 border border-white/10 rounded-xl flex flex-col items-center min-w-[70px]">
-                      <span className="text-[8px] text-white/40 font-black uppercase tracking-tighter">ELES</span>
-                      <span className="text-2xl font-black text-white">{gameState.score?.theirs || 0}</span>
-                  </div>
-               </div>
-          </div>
-
-          {/* HUD - Mobile Placar (Bottom Left) */}
-          <div className="absolute bottom-24 left-4 z-[60] md:hidden">
-               <div className="bg-black/80 border border-white/20 px-3 py-2 rounded-xl backdrop-blur-lg flex items-center gap-4 text-xs font-black">
-                  <span className="text-glow">NÓS: {gameState.score?.ours || 0}</span>
-                  <div className="w-px h-3 bg-white/20" />
-                  <span className="text-white/60">ELES: {gameState.score?.theirs || 0}</span>
-               </div>
-          </div>
+          {/* HUD - Mobile Placar (Bottom Left) — REMOVED: Now using Top Right unified HUD */}
 
           {/* HUD - Mãos Ganhas (Bottom Right) */}
           <div className="absolute bottom-24 right-4 md:bottom-8 md:right-8 z-[60]">
@@ -906,7 +902,28 @@ export function TrucoBoard({ roomId, profile, onExit }) {
       {/* Truco Challenge Modal - Only shown to the team being challenged */}
       <AnimatePresence>
         {(() => {
-            if (gameState.trucoChallenge?.status !== 'pending') return null;
+            if (!gameState.trucoChallenge || gameState.trucoChallenge.status === 'accepted') return null;
+            
+            if (gameState.trucoChallenge.status === 'folded') {
+                return (
+                    <motion.div 
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.9 }}
+                        className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+                    >
+                        <div className="bg-danger/20 border-2 border-danger/40 p-8 rounded-3xl max-w-sm w-full text-center shadow-2xl backdrop-blur-xl">
+                            <h3 className="text-3xl font-black mb-3 text-white tracking-widest uppercase italic">CORREU!</h3>
+                            <p className="text-white/60 text-xs uppercase tracking-widest font-black">
+                                DESAFIO REJEITADO.
+                                <br/><span className="text-danger mt-2 inline-block">EQUIPE DESISTIU DA MÃO</span>
+                            </p>
+                        </div>
+                    </motion.div>
+                );
+            }
+
+            if (gameState.trucoChallenge.status !== 'pending') return null;
             
             // Logic: Is it MY team that needs to respond?
             const challengerTeam = gameState.trucoChallenge.challengerTeam;
