@@ -84,9 +84,7 @@ export const getCPUMove = (hand, table, vira, gameState, myPos) => {
  *
  * Rules:
  *  - Only on the CPU's own turn (when it's about to play)
- *  - Only if it's not already the challenger team
- *  - Only if handPoints < 12
- *  - Probability based on actual hand strength
+ *  - Probability based on actual hand strength (Conservative)
  */
 export const shouldCPUCallTruco = (hand, vira, gameState, myPos) => {
     if (!hand || hand.length === 0) return false;
@@ -108,21 +106,17 @@ export const shouldCPUCallTruco = (hand, vira, gameState, myPos) => {
     const maxPower = Math.max(...powers);
     const round    = gameState.currentRound ?? 0;
 
-    // High chance: 2+ manilhas
-    if (manilhas >= 2) return Math.random() < 0.75;
+    // Very Strong: 2+ manilhas
+    if (manilhas >= 2) return Math.random() < 0.45; // reduced from 0.75
 
-    // Good chance: 1 manilha + strong card
-    if (manilhas === 1 && maxPower >= 8) return Math.random() < 0.45;
+    // Strong: 1 manilha + best card (3)
+    if (manilhas === 1 && maxPower >= 9 && round > 0) return Math.random() < 0.25;
 
     // Medium: 1 manilha alone
-    if (manilhas === 1) return Math.random() < 0.25;
-
-    // Lower: two strong non-manilha cards (8 = '2', 9 = '3')
-    const strongCards = powers.filter(p => p >= 8).length;
-    if (strongCards >= 2) return Math.random() < 0.15;
-
+    if (manilhas === 1 && round === 2) return Math.random() < 0.35; // wait for final round
+    
     // Rare bluff on round 0 only
-    if (round === 0 && maxPower >= 6) return Math.random() < 0.04;
+    if (round === 0 && maxPower >= 8) return Math.random() < 0.02; // very rare
 
     return false;
 };
@@ -131,8 +125,6 @@ export const shouldCPUCallTruco = (hand, vira, gameState, myPos) => {
 /**
  * Decides how the CPU responds to a Truco challenge.
  * Returns 'ACCEPT' | 'FOLD' | 'RAISE'
- *
- * Conservative thresholds — bots shouldn't fold too easily or accept blindly.
  */
 export const autoRespondToTruco = (hand, vira, gameState, myPos) => {
     if (!hand || hand.length === 0) return 'FOLD';
@@ -147,19 +139,16 @@ export const autoRespondToTruco = (hand, vira, gameState, myPos) => {
     const teamIndex    = myTeam === 'ours' ? 1 : 2;
     const wonRound1    = roundWinners[0] === teamIndex;
 
-    // ── Strong enough to raise ──
+    // ── Raise conditions (Only with extreme strength) ──
     if (gameState.handPoints < 12) {
-        if (manilhas >= 2 && Math.random() < 0.6) return 'RAISE';
-        if (manilhas === 1 && maxPower >= 9 && Math.random() < 0.25) return 'RAISE';
+        if (manilhas >= 2 && Math.random() < 0.15) return 'RAISE';
     }
 
-    // ── Accept conditions ──
-    if (manilhas >= 1) return 'ACCEPT';                       // always accept with manilha
-    if (maxPower >= 9) return 'ACCEPT';                       // has '3'
-    if (maxPower >= 8 && wonRound1) return 'ACCEPT';          // up with a '2' after winning round 1
-    if (maxPower >= 8 && Math.random() < 0.55) return 'ACCEPT'; // has '2', coin flip
-    if (avgPower >= 6 && wonRound1) return 'ACCEPT';          // decent hand AND winning
-    if (avgPower >= 5 && Math.random() < 0.25) return 'ACCEPT'; // mediocre hand, small chance
+    // ── Accept conditions (More conservative) ──
+    if (manilhas >= 1) return 'ACCEPT';                       
+    if (maxPower >= 9 && (wonRound1 || roundWinners.length === 0)) return 'ACCEPT';
+    if (maxPower >= 8 && wonRound1 && Math.random() < 0.4) return 'ACCEPT';
+    if (avgPower >= 7 && Math.random() < 0.2) return 'ACCEPT';
 
     return 'FOLD';
 };
