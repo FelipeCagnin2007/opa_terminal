@@ -340,13 +340,11 @@ export function TrucoBoard({ roomId, profile, onExit }) {
                             }
 
                             console.warn("[TRUCO_SYSTEM] EXECUTANDO RESPOSTA DO BOT AGORA!");
-                            const handWithPower = (currentContext.hands[targetPos] || []).map(card => getCardPower(card, currentContext.vira));
-                            const maxPower = Math.max(...handWithPower);
-                            
-                            let action = response === 'ACCEPTED' ? 'ACCEPT' : 'FOLD';
-                            if (action === 'ACCEPT' && maxPower >= 8 && currentContext.handPoints < 12 && Math.random() < 0.3) {
-                                action = 'RAISE';
-                            }
+
+                            // Pass through the decision from autoRespondToTruco directly.
+                            // Previously this was response === 'ACCEPTED' (typo) which always
+                            // evaluated to false, causing every bot to always FOLD.
+                            const action = response; // 'ACCEPT' | 'FOLD' | 'RAISE'
 
                             await handleTrucoResponse(action, targetId);
                         } catch (err) {
@@ -362,13 +360,10 @@ export function TrucoBoard({ roomId, profile, onExit }) {
             }
         }
     } else if (!gameState.trucoChallenge || gameState.trucoChallenge.status !== 'pending') {
+        // FIX 3: always clear both refs when no pending challenge exists
+        // so the CPU can resume its normal move after any resolution (ACCEPT, FOLD, new hand)
         responseInitiatedRef.current = null;
-        
-        // Reset moveInitiatedRef if the challenge was just accepted/resolved 
-        // to ensure the CPU can resume its normal move if it was blocked
-        if (gameState.trucoChallenge?.status === 'accepted') {
-            moveInitiatedRef.current = null;
-        }
+        moveInitiatedRef.current = null;
     }
     
     // 2. Handle Normal Moves
@@ -511,6 +506,8 @@ export function TrucoBoard({ roomId, profile, onExit }) {
                 let finalState = {
                     ...s,
                     table:        [],
+                    // ITEM 3: Card memory — accumulate played cards across rounds
+                    playedCards:  [...(s.playedCards ?? []), ...s.table.map(p => p.card)],
                     roundPoints:  roundWinners,
                     currentRound: nextRound + 1,
                     currentTurn:  nextTurnId,
@@ -568,7 +565,8 @@ export function TrucoBoard({ roomId, profile, onExit }) {
   const callTruco = async () => {
     const currentGS = gameStateRef.current;
     if (!currentGS) return;
-    if (!isMyTurn || currentGS.trucoChallenge) return;
+    // FIX 1: only block on *pending* challenge, not any trucoChallenge object
+    if (!isMyTurn || currentGS.trucoChallenge?.status === 'pending') return;
     
     const nextPoints = currentGS.handPoints === 1 ? 3 : currentGS.handPoints + 3;
     if (nextPoints > 12) return;
@@ -595,9 +593,30 @@ export function TrucoBoard({ roomId, profile, onExit }) {
     }
   };
 
+  // FIX 4: callTrucoInternal applies state directly without depending on isMyTurn
+  // (called by the HOST when it receives a CALL_TRUCO action from a Guest via P2P)
   const callTrucoInternal = (fromId) => {
-      // Logic handled by Host via handleIncomingAction
-      callTruco(); 
+      const currentGS = gameStateRef.current;
+      if (!currentGS || currentGS.trucoChallenge?.status === 'pending') return;
+
+      const posStr = Object.keys(currentGS.positions).find(k => currentGS.positions[k] == fromId);
+      if (posStr === undefined) return;
+
+      const pos = parseInt(posStr);
+      const challengerTeam = (pos === 0 || pos === 2) ? 'ours' : 'theirs';
+      const nextPoints = currentGS.handPoints === 1 ? 3 : currentGS.handPoints + 3;
+      if (nextPoints > 12) return;
+
+      updateGameState({
+          ...currentGS,
+          handPoints: nextPoints,
+          trucoChallenge: {
+              challenger: fromId,
+              challengerTeam,
+              status: 'pending',
+              value: nextPoints
+          }
+      });
   };
 
   const handleTrucoResponse = async (action, actorId = null) => {
@@ -613,25 +632,35 @@ export function TrucoBoard({ roomId, profile, onExit }) {
     let newState = { ...currentGameState };
     
     if (action === 'ACCEPT') {
+        // FIX 2a: ACCEPT now clears the challenge properly and always calls updateGameState
         newState.trucoChallenge = {
             ...currentGameState.trucoChallenge,
-            status: 'accepted' 
+            status: 'accepted'
         };
+        // Persist and broadcast (was missing before — caused the deadlock for accept)
+        updateGameState(newState);
     } else if (action === 'RAISE') {
         const nextPoints = currentGameState.handPoints + 3;
         if (nextPoints > 12) return;
         
         const actorPosStr = Object.keys(currentGameState.positions).find(k => currentGameState.positions[k] == actingPlayerId);
+        // Guard: actorId must exist in positions (can be missing in P2P race conditions)
+        if (actorPosStr === undefined) {
+            console.error('[TRUCO_CORE] RAISE: actingPlayerId not found in positions:', actingPlayerId);
+            return;
+        }
         const actorPos = parseInt(actorPosStr);
-        const myTeam = (actorPos === 0 || actorPos === 2) ? 'ours' : 'theirs';
+        const raiserTeam = (actorPos === 0 || actorPos === 2) ? 'ours' : 'theirs';
 
         newState.handPoints = nextPoints;
         newState.trucoChallenge = {
             challenger: actingPlayerId,
-            challengerTeam: myTeam,
+            challengerTeam: raiserTeam,
             status: 'pending',
             value: nextPoints
         };
+        // FIX 2b: RAISE also calls updateGameState (was missing before)
+        updateGameState(newState);
     } else {
         // action === 'FOLD'
         const winningTeam = currentGameState.trucoChallenge.challengerTeam;
@@ -652,13 +681,15 @@ export function TrucoBoard({ roomId, profile, onExit }) {
             addReward(pointsToAward * 5, pointsToAward * 10);
 
             let finalState = { ...nextState };
-            finalState.score = updatedScore; // Ensure score is updated in final state
+            finalState.score = updatedScore;
             
             if (updatedScore.ours >= 12) finalState.winner = 'ours';
             else if (updatedScore.theirs >= 12) finalState.winner = 'theirs';
 
             if (finalState.winner) {
                 finalState.status = 'finished';
+                // Clear trucoChallenge so the CORREU popup doesn't overlap the WIN overlay
+                finalState.trucoChallenge = null;
                 if (finalState.winner === 'ours') addReward(100, 200);
             } else {
                 const freshState = initializeTrucoState({ 
@@ -672,8 +703,9 @@ export function TrucoBoard({ roomId, profile, onExit }) {
         return;
     }
 
-    // If client, send to host reliably (with ACK + retry)
-    if (!isHostRef.current && gameStateRef.current?.mode !== 'solo') {
+    // Guest: also send action to host so it can re-broadcast to all peers
+    // Note: updateGameState above already applied state locally (optimistic update)
+    if (!isHostRef.current && currentGameState?.mode !== 'solo') {
         sendActionToHost({ type: 'TRUCO_RESPONSE', action, from: actingPlayerId });
     }
   };
@@ -858,6 +890,10 @@ export function TrucoBoard({ roomId, profile, onExit }) {
                     // Disable if my team was the last to challenge/raise
                     if (gameState.trucoChallenge?.challengerTeam === myTeam) return true;
                     if (gameState.handPoints >= 12) return true;
+
+                    // ITEM 5: Mão de 11 — block Truco call when either team is at 11
+                    // (hand is already worth 3 pts by rule; calling would risk penalty)
+                    if (gameState.score?.ours === 11 || gameState.score?.theirs === 11) return true;
                     
                     return false;
                 })()}
@@ -939,7 +975,7 @@ export function TrucoBoard({ roomId, profile, onExit }) {
         {(() => {
             if (!gameState.trucoChallenge || gameState.trucoChallenge.status === 'accepted') return null;
             
-            if (gameState.trucoChallenge.status === 'folded') {
+            if (gameState.trucoChallenge.status === 'folded' && !gameState.winner) {
                 return (
                     <motion.div 
                         initial={{ opacity: 0, scale: 0.9 }}
