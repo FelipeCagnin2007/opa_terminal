@@ -49,28 +49,37 @@ export function PetProvider({ children }) {
         }
 
         const loadCloudPet = async () => {
-            const { data, error } = await supabase
-                .from('pet_states')
-                .select('state')
-                .eq('user_id', user.id)
-                .maybeSingle();
+            // Fetch pet state and user coins/xp in parallel
+            const [petResult, userResult] = await Promise.all([
+                supabase.from('pet_states').select('state').eq('user_id', user.id).maybeSingle(),
+                supabase.from('usuarios').select('coins, xp').eq('id', user.id).maybeSingle(),
+            ]);
 
-            if (error) console.error('[PET_CONTEXT] Erro ao carregar Pet:', error.message);
+            if (petResult.error)  console.error('[PET_CONTEXT] Erro ao carregar Pet:', petResult.error.message);
+            if (userResult.error) console.error('[PET_CONTEXT] Erro ao carregar coins/xp:', userResult.error.message);
+
+            const petData  = petResult.data;
+            const userData = userResult.data;
 
             setPet(prev => {
-                const finalCoins = Math.max(profile?.coins || 0, data?.state?.coins || prev.coins || 0);
-                const finalXp    = Math.max(profile?.xp    || 0, data?.state?.xp    || prev.xp    || 0);
+                // coins/xp come ONLY from usuarios — ignore any stale values in pet_states
+                const finalCoins = userData?.coins ?? profile?.coins ?? prev.coins ?? 0;
+                const finalXp    = userData?.xp    ?? profile?.xp    ?? prev.xp    ?? 0;
 
-                if (data?.state) return { ...INITIAL_PET, ...data.state, coins: finalCoins, xp: finalXp };
+                if (petData?.state) {
+                    // Destructure to discard any coins/xp saved in pet_states (migration safety)
+                    const { coins: _c, xp: _x, ...petOnlyState } = petData.state;
+                    return { ...INITIAL_PET, ...petOnlyState, coins: finalCoins, xp: finalXp };
+                }
                 return { ...INITIAL_PET, coins: finalCoins, xp: finalXp, lastUpdate: Date.now() };
             });
 
             setHasLoadedCloud(true);
-            isDirtyRef.current = false; // fresh from DB, nothing to write yet
+            isDirtyRef.current = false;
         };
 
         loadCloudPet();
-    }, [user?.id, profile?.id, loading]);
+    }, [user?.id, loading]);
 
     // ── 2. Local Decay & Tick (pure local, no DB) ─────────────────────────
     useEffect(() => {
@@ -121,26 +130,30 @@ export function PetProvider({ children }) {
             isDirtyRef.current   = false;             // optimistically clear
 
             try {
-                const now   = new Date().toISOString();
                 const state = petRef.current;
+                const coins = Math.floor(state.coins || 0);
+                const xp    = Math.floor(state.xp    || 0);
 
-                const { error: upsertError } = await supabase
-                    .from('pet_states')
-                    .upsert({ user_id: user.id, state: { ...state, lastUpdate: Date.now() }, last_updated: now });
+                // Strip coins/xp from the JSONB saved to pet_states — usuarios is the single source of truth
+                const { coins: _c, xp: _x, ...petOnlyState } = state;
 
-                if (upsertError) {
-                    console.error('[PET_CONTEXT] pet_states upsert error:', upsertError);
-                    isDirtyRef.current = true; // retry next cycle
-                }
+                const { error: rpcError } = await supabase.rpc('sync_pet_state', {
+                    p_user_id: user.id,
+                    p_state:   { ...petOnlyState, lastUpdate: Date.now() }, // no coins/xp in pet_states
+                    p_coins:   coins,
+                    p_xp:      xp,
+                });
 
-                const { error: userError } = await supabase
-                    .from('usuarios')
-                    .update({ coins: state.coins, xp: state.xp })
-                    .eq('id', user.id);
-
-                if (userError) {
-                    console.error('[PET_CONTEXT] usuarios update error:', userError);
-                    isDirtyRef.current = true;
+                if (rpcError) {
+                    // RPC failed — fallback to direct queries
+                    console.warn('[PET_CONTEXT] RPC falhou, usando fallback direto:', rpcError.message);
+                    const now = new Date().toISOString();
+                    const [upsertRes, updateRes] = await Promise.all([
+                        supabase.from('pet_states').upsert({ user_id: user.id, state: { ...petOnlyState, lastUpdate: Date.now() }, last_updated: now }),
+                        supabase.from('usuarios').update({ coins, xp }).eq('id', user.id),
+                    ]);
+                    if (upsertRes.error) console.error('[PET_CONTEXT] Fallback upsert error:', upsertRes.error);
+                    if (updateRes.error) { console.error('[PET_CONTEXT] Fallback update error:', updateRes.error); isDirtyRef.current = true; }
                 }
             } catch (e) {
                 console.warn('[PET_CONTEXT] Sync failed:', e);
