@@ -1,5 +1,5 @@
 /**
- * OPA TRUCO ENGINE v2.0
+ * OPA TRUCO ENGINE v2.1
  * Regras: Truco Paulista (Vira + 1)
  */
 
@@ -29,6 +29,36 @@ export const getCardPower = (card, vira) => {
     }
     
     return CARD_VALUES.indexOf(card.value);
+};
+
+/**
+ * Calculates the EFFECTIVE (context-aware) power of a card, accounting for
+ * stronger cards that have already been played (card memory / card counting).
+ *
+ * For manilhas: each stronger manilha already in the discard pile increases
+ * this card's effective rank (e.g., Copas becomes "effective Zap" when Zap is gone).
+ * For regular cards: absolute power is unchanged (rank is fixed).
+ *
+ * @param {Object} card        - The card to evaluate {value, suit}
+ * @param {Object} vira        - The vira card {value, suit}
+ * @param {Array}  playedCards - All cards discarded in previous rounds
+ * @returns {number} effective power (same scale as getCardPower, but dynamically adjusted)
+ */
+export const getEffectivePower = (card, vira, playedCards = []) => {
+    const basePower = getCardPower(card, vira);
+    if (!vira || basePower < 100) return basePower; // regular card: no change
+
+    const manilhaValue = getManilhaValue(vira.value);
+    const mySuitPower  = SUIT_POWER[card.suit] || 0;
+
+    // Count stronger manilhas (higher suit power) already played
+    const strongerManilhasGone = playedCards.filter(
+        c => c.value === manilhaValue && (SUIT_POWER[c.suit] || 0) > mySuitPower
+    ).length;
+
+    // Each gone superior manilha upgrades this card's effective rank by 1
+    // (Copas with Zap gone = new top card; same base power + 1 per superior gone)
+    return basePower + strongerManilhasGone;
 };
 
 /**
@@ -122,6 +152,7 @@ export const initializeTrucoState = (currentState, positions) => {
         },
         vira: deck.splice(0, 1)[0],
         table: [],
+        playedCards: [],          // Card memory: accumulates across all rounds of this hand
         score: currentState.score || { ours: 0, theirs: 0 },
         handPoints: 1,
         roundPoints: [],

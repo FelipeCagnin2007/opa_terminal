@@ -28,7 +28,7 @@ export function MainTerminalLayout() {
     <div className="terminal-container font-terminal">
       {/* Dynamic Background Noise */}
       <div className="noise-bg fixed inset-0 z-[-1]" />
-      
+
       {/* Header */}
       <header className="flex items-center justify-between gap-4 mb-8 md:mb-12 relative z-50">
         <div className="flex items-center gap-4 md:gap-6 min-w-0">
@@ -38,21 +38,21 @@ export function MainTerminalLayout() {
               <Cpu className="text-glow w-6 h-6 animate-flicker" />
             </div>
           </Link>
-          
+
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 md:gap-3 flex-wrap">
               <h1 className="text-xl md:text-2xl font-black text-white tracking-[0.2em] md:tracking-[0.3em] truncate">
                 OPA<span className="text-glow">.CORE</span>
               </h1>
-              <span className="text-[8px] bg-white/5 border border-white/10 px-2 py-0.5 rounded tracking-[0.2em] font-black text-neutral-400 shrink-0">v2.8_FINAL</span>
+              <span className="text-[8px] bg-white/5 border border-white/10 px-2 py-0.5 rounded tracking-[0.2em] font-black text-neutral-400 shrink-0">v3.2_FIXED</span>
             </div>
-            
+
             <div className="flex items-center gap-3 md:gap-5 mt-2 flex-wrap">
               <div className="hidden min-[400px]:flex items-center gap-2 opacity-40">
                 <Activity className="w-3 h-3 text-glow" />
                 <span className="text-[8px] md:text-[9px] uppercase tracking-widest font-bold">Lat: 12ms</span>
               </div>
-              
+
               {profile ? (
                 <div className="flex items-center gap-4 md:gap-6 min-w-0">
                   <div className="flex items-center gap-2 min-w-0">
@@ -78,16 +78,16 @@ export function MainTerminalLayout() {
             </div>
           </div>
         </div>
-        
+
         <div className="flex items-center gap-4 shrink-0">
-          <button 
+          <button
             onClick={() => setIsMenuOpen(!isMenuOpen)}
             className="md:hidden p-2.5 text-neutral-400 bg-surface border border-white/5 rounded-xl active:scale-95 transition-all shadow-lg hover:text-white hover:bg-surface-brighter"
             aria-label="Menu"
           >
             {isMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
-          <button 
+          <button
             onClick={logout}
             className="hidden md:flex items-center gap-3 px-6 py-3 bg-danger/10 hover:bg-danger/20 text-danger border border-danger/20 rounded-xl transition-all text-[10px] font-black tracking-widest uppercase group"
           >
@@ -113,28 +113,27 @@ export function MainTerminalLayout() {
           >
             <div className="flex justify-between items-center mb-6">
               <span className="text-[10px] font-black text-neutral-500 tracking-[0.3em]">NAV_SYSTEM</span>
-              <button 
+              <button
                 onClick={() => setIsMenuOpen(false)}
                 className="p-2 bg-white/5 rounded-lg hover:bg-white/10 transition-colors"
-               >
-                 <X className="text-neutral-400 w-4 h-4" />
-               </button>
+              >
+                <X className="text-neutral-400 w-4 h-4" />
+              </button>
             </div>
             {TABS.map((tab) => (
               <Link
                 key={tab.id}
                 to={tab.path}
                 onClick={() => setIsMenuOpen(false)}
-                className={`flex items-center gap-4 p-4 rounded-xl font-black uppercase tracking-[0.2em] text-[10px] transition-all active:scale-95 ${
-                  location.pathname === tab.path ? 'bg-glow/10 text-glow border border-glow/20 shadow-inner' : 'text-neutral-400 hover:bg-white/5 hover:text-white'
-                }`}
+                className={`flex items-center gap-4 p-4 rounded-xl font-black uppercase tracking-[0.2em] text-[10px] transition-all active:scale-95 ${location.pathname === tab.path ? 'bg-glow/10 text-glow border border-glow/20 shadow-inner' : 'text-neutral-400 hover:bg-white/5 hover:text-white'
+                  }`}
               >
                 <tab.icon className={`w-4 h-4 ${location.pathname === tab.path ? 'text-glow' : 'text-neutral-500'}`} />
                 {tab.label}
               </Link>
             ))}
             <div className="mt-8 pt-6 border-t border-white/5">
-              <button 
+              <button
                 onClick={logout}
                 className="w-full flex items-center justify-center gap-3 p-4 rounded-xl font-black uppercase tracking-[0.2em] text-[10px] bg-danger/10 text-danger border border-danger/20 transition-all active:scale-95"
               >
