@@ -59,6 +59,7 @@ export function PokemonBattleLobby({ myTeam, onBattleStart, onBack }) {
   const [copied, setCopied] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const peerRef = useRef(null);
+  const oppTeamRef = useRef(null);
   const isHost = mode === 'host';
 
   const cleanup = useCallback(() => {
@@ -89,6 +90,7 @@ export function PokemonBattleLobby({ myTeam, onBattleStart, onBack }) {
         onMessage: (msg) => {
           if (msg.type === MSG.BATTLE_ACCEPT) {
             setOpponentTeam(msg.payload.team);
+            oppTeamRef.current = msg.payload.team;
             // Determine who goes first (faster Pokémon)
             const mySpeed = myTeam[0]?.stats?.speed || 50;
             const oppSpeed = (msg.payload.team[0]?.stats?.speed) || 50;
@@ -126,6 +128,7 @@ export function PokemonBattleLobby({ myTeam, onBattleStart, onBack }) {
         onMessage: (msg) => {
           if (msg.type === MSG.BATTLE_CHALLENGE) {
             setOpponentTeam(msg.payload.team);
+            oppTeamRef.current = msg.payload.team;
             // Accept and send our team
             sendMessage(MSG.BATTLE_ACCEPT, { team: myTeam });
             setStatus('handshake');
@@ -133,6 +136,16 @@ export function PokemonBattleLobby({ myTeam, onBattleStart, onBack }) {
           if (msg.type === MSG.BATTLE_READY) {
             setStatus('ready');
             // Guest receives the battle state directly when arena renders
+          }
+          if (msg.type === 'BATTLE_START') {
+            if (onBattleStart) {
+              onBattleStart({
+                isHost: false,
+                myTeam,
+                opponentTeam: oppTeamRef.current,
+                peerId: peerRef.current?.id,
+              });
+            }
           }
         },
         onDisconnect: () => {
@@ -147,6 +160,9 @@ export function PokemonBattleLobby({ myTeam, onBattleStart, onBack }) {
   };
 
   const handleBattleStart = () => {
+    if (isHost) {
+      sendMessage('BATTLE_START');
+    }
     if (onBattleStart) {
       onBattleStart({
         isHost,
@@ -337,13 +353,19 @@ export function PokemonBattleLobby({ myTeam, onBattleStart, onBack }) {
               <TeamPreview team={myTeam} label="YOUR_TEAM" />
               {opponentTeam && <TeamPreview team={opponentTeam} label="OPPONENT_TEAM" />}
             </div>
-            <button
-              onClick={handleBattleStart}
-              className="btn-premium w-full py-4 flex items-center justify-center gap-3"
-            >
-              <Swords className="w-5 h-5" />
-              INITIATE_BATTLE_PROTOCOL
-            </button>
+            {isHost ? (
+              <button
+                onClick={handleBattleStart}
+                className="btn-premium w-full py-4 flex items-center justify-center gap-3"
+              >
+                <Swords className="w-5 h-5" />
+                INITIATE_BATTLE_PROTOCOL
+              </button>
+            ) : (
+              <div className="w-full py-4 flex items-center justify-center gap-3 text-white/40 font-black uppercase tracking-[0.2em] border border-white/5 rounded-xl bg-white/5 animate-pulse">
+                WAITING_FOR_HOST_TO_START...
+              </div>
+            )}
           </motion.div>
         </AnimatePresence>
       )}
