@@ -8,7 +8,8 @@ export const AuthProvider = ({ children }) => {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Helper to fetch or create profile with timeout safety
+  // Fetch profile — DB trigger handles creation automatically on signup,
+  // so we only need a single SELECT here (no more INSERT race condition).
   const executeProfileFetch = async (authenticatedUser) => {
     if (!authenticatedUser) return null;
     console.log("[AUTH] Fetching profile for:", authenticatedUser.id);
@@ -16,7 +17,7 @@ export const AuthProvider = ({ children }) => {
     try {
         const { data, error } = await supabase
             .from('usuarios')
-            .select('*')
+            .select('id, nome, coins, xp') // select específico — sem overfetch
             .eq('id', authenticatedUser.id)
             .maybeSingle();
         
@@ -25,32 +26,25 @@ export const AuthProvider = ({ children }) => {
             throw error;
         }
 
+        // Profile not found yet (trigger may be processing) — retry once after 800ms
         if (!data) {
-            console.log("[AUTH] Profile not found. Executing insert...");
-            const { data: newProfile, error: createError } = await supabase
+            console.warn("[AUTH] Profile not found on first attempt — retrying in 800ms (trigger may be processing)...");
+            await new Promise(res => setTimeout(res, 800));
+            const { data: retryData, error: retryErr } = await supabase
                 .from('usuarios')
-                .insert([{ 
-                    id: authenticatedUser.id, 
-                    nome: authenticatedUser.user_metadata?.nome || 'USUÁRIO_OPA',
-                    coins: 100,
-                    xp: 0
-                }])
-                .select()
-                .single();
-
-            if (createError) {
-                console.error("[AUTH] Insert Profile Error:", createError.message);
-                throw createError;
-            }
-            console.log("[AUTH] Profile created successfully.");
-            return newProfile;
+                .select('id, nome, coins, xp')
+                .eq('id', authenticatedUser.id)
+                .maybeSingle();
+            if (retryErr) throw retryErr;
+            console.log(retryData ? "[AUTH] Profile found on retry." : "[AUTH] Profile still not found — trigger may be delayed.");
+            return retryData;
         }
         
         console.log("[AUTH] Profile fetched successfully.");
         return data;
     } catch (err) {
         console.error("[AUTH] executeProfileFetch critical error:", err.message);
-        return null; // Return null but don't hang
+        return null;
     }
   };
 

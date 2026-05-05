@@ -17,10 +17,7 @@ export function MultiplayerTab() {
     const fetchRooms = async () => {
       const { data } = await supabase
         .from('game_rooms')
-        .select(`
-          *,
-          usuarios (nome)
-        `)
+        .select('id, host_id, status, created_at, game_state, usuarios (nome)')
         .eq('status', 'waiting')
         .order('created_at', { ascending: false });
 
@@ -30,10 +27,24 @@ export function MultiplayerTab() {
 
     fetchRooms();
 
-    const channelId = `rooms_list_${Math.random().toString(36).slice(2, 7)}`;
+    // Stable channel ID — prevents duplicate channels on re-mount
     const channel = supabase
-      .channel(channelId)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'game_rooms' }, fetchRooms)
+      .channel('game_rooms_list')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'game_rooms' }, (payload) => {
+        // Apply delta directly — no full re-fetch on every event
+        if (payload.eventType === 'INSERT' && payload.new.status === 'waiting') {
+          setRooms(prev => [payload.new, ...prev]);
+        } else if (payload.eventType === 'DELETE') {
+          setRooms(prev => prev.filter(r => r.id !== payload.old.id));
+        } else if (payload.eventType === 'UPDATE') {
+          if (payload.new.status !== 'waiting') {
+            // Room is no longer available — remove from list
+            setRooms(prev => prev.filter(r => r.id !== payload.new.id));
+          } else {
+            setRooms(prev => prev.map(r => r.id === payload.new.id ? payload.new : r));
+          }
+        }
+      })
       .subscribe();
 
     return () => {

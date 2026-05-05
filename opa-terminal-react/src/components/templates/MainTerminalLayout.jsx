@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation, Outlet, Link } from 'react-router-dom';
-import { Menu, X, Terminal, Shield, Book, Gamepad2, Info, MessageSquare, Users, LogOut, Cpu, Activity, Trophy, Coins, Zap } from 'lucide-react';
+import { Menu, X, Terminal, Shield, Book, Gamepad2, Info, MessageSquare, Users, LogOut, Cpu, Activity, Trophy, Coins, Zap, Swords } from 'lucide-react';
 import { NavTabs } from '../molecules/NavTabs';
 import { useAuthContext } from '../../context/AuthContext';
 import { usePet } from '../../context/PetContext';
@@ -13,6 +13,7 @@ const TABS = [
   { id: 'chat', label: 'Chat', icon: MessageSquare, path: '/chat' },
   { id: 'leaderboard', label: 'Ranking', icon: Trophy, path: '/leaderboard' },
   { id: 'multiplayer', label: 'Multijogador', icon: Users, path: '/multiplayer' },
+  { id: 'pokemon', label: 'Pokémon', icon: Swords, path: '/pokemon' },
   { id: 'blackopa', label: 'Blackopa', icon: Gamepad2, path: '/blackopa' },
   { id: 'linguopa', label: 'Linguopa', icon: Gamepad2, path: '/linguopa' },
   { id: 'gotchi', label: 'OPA-gotchi', icon: Info, path: '/gotchi' },

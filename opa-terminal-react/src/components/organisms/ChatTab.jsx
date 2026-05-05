@@ -22,7 +22,7 @@ export function ChatTab() {
       const { data, error } = await supabase
         .from('chat_messages')
         .select(`id, content, created_at, user_id, usuarios (nome)`)
-        .order('created_at', { ascending: true })
+        .order('created_at', { ascending: false }) // fetch newest first
         .limit(50);
 
       if (error) {
@@ -31,13 +31,14 @@ export function ChatTab() {
       }
 
       if (data) {
-        // Seed the cache with every user we got from the initial fetch
-        data.forEach(msg => {
+        // Reverse so messages display oldest → newest (chronological order in UI)
+        const chronological = [...data].reverse();
+        chronological.forEach(msg => {
           if (msg.user_id && msg.usuarios?.nome) {
             userNamesCache.current.set(msg.user_id, msg.usuarios.nome);
           }
         });
-        setMessages(data);
+        setMessages(chronological);
       }
     };
 

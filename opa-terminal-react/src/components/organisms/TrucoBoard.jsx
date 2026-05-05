@@ -86,10 +86,16 @@ export function TrucoBoard({ roomId, profile, onExit }) {
         // 1. P2P Broadcast (Fastest)
         p2p.broadcast({ type: 'STATE_UPDATE', gameState: newState });
 
-        // 2. Supabase Fallback (Reliability) — only for critical status/turn changes to avoid overload
-        // We update the DB so guests who missed the P2P packet can catch up via Supabase
-        const isCriticalUpdate = newState.table?.length === 0 || newState.currentRound === 0 || newState.trucoChallenge?.status === 'pending';
-        if (isCriticalUpdate || Math.random() < 0.2) { // also randomize some non-critical ones for safety
+        // 2. Supabase Fallback (Reliability) — only for truly critical state changes
+        // Removing Math.random() writes — only signal when game state fundamentally changes
+        const isCriticalUpdate =
+            newState.table?.length === 0 ||
+            newState.currentRound === 0 ||
+            newState.trucoChallenge?.status === 'pending' ||
+            newState.winner != null ||
+            newState.status === 'finished';
+
+        if (isCriticalUpdate) {
             supabase
                 .from('game_rooms')
                 .update({ game_state: newState })
@@ -105,13 +111,13 @@ export function TrucoBoard({ roomId, profile, onExit }) {
 
   useEffect(() => {
     let cleanedUp = false;
-    let supabaseChannel = null;
+    let supabaseChannels = []; // array to track ALL channels and prevent leaks
 
     const initGame = async () => {
         // 1. Fetch room data from Supabase (signaling channel only)
         const { data: roomData } = await supabase
             .from('game_rooms')
-            .select('*')
+            .select('id, host_id, status, game_state') // specific fields only
             .eq('id', roomId)
             .single();
 
@@ -193,6 +199,7 @@ export function TrucoBoard({ roomId, profile, onExit }) {
                     }
                 )
                 .subscribe();
+            supabaseChannels.push(supabaseChannel); // track to avoid leak
 
             // When a new peer connects, send current state (if already initialized)
             // or they will receive it via the Supabase broadcast above
@@ -226,7 +233,7 @@ export function TrucoBoard({ roomId, profile, onExit }) {
         // 6. SHARED FALLBACK: Subscribe to Supabase Postgres Changes
         // This is the safety net if P2P drops a packet
         console.log('[SYNC] Subscribing to Supabase Realtime fallback...');
-        supabaseChannel = supabase
+        const fallbackChannel = supabase
             .channel(`truco_sync_${roomId}`)
             .on(
                 'postgres_changes',
@@ -252,13 +259,15 @@ export function TrucoBoard({ roomId, profile, onExit }) {
                 }
             )
             .subscribe();
+        supabaseChannels.push(fallbackChannel); // track second channel — previously leaked!
     };
 
     initGame();
 
     return () => {
         cleanedUp = true;
-        if (supabaseChannel) supabase.removeChannel(supabaseChannel);
+        // Remove ALL tracked channels — previously only the last one was removed
+        supabaseChannels.forEach(ch => supabase.removeChannel(ch));
         p2p.destroy();
     };
   }, [roomId]);
