@@ -49,7 +49,7 @@ function TeamPreview({ team, label }) {
   );
 }
 
-export function PokemonBattleLobby({ myTeam, onBattleStart, onBack }) {
+export function PokemonBattleLobby({ myTeam, onBattleStart, onBack, p2pHandlersRef }) {
   const [mode, setMode] = useState(null); // 'host' | 'guest'
   const [peerId, setPeerId] = useState('');
   const [shortCode, setShortCode] = useState('');
@@ -97,6 +97,11 @@ export function PokemonBattleLobby({ myTeam, onBattleStart, onBack }) {
             const firstTurn = mySpeed >= oppSpeed ? 'host' : 'guest';
             sendMessage(MSG.BATTLE_READY, { hostTeam: myTeam, guestTeam: msg.payload.team, firstTurn });
             setStatus('ready');
+          }
+
+          // Forward to Arena if mounted
+          if (p2pHandlersRef?.current?.onMessage) {
+            p2pHandlersRef.current.onMessage(msg);
           }
         },
         onDisconnect: () => {
@@ -146,6 +151,11 @@ export function PokemonBattleLobby({ myTeam, onBattleStart, onBack }) {
                 peerId: peerRef.current?.id,
               });
             }
+          }
+
+          // Forward to Arena if mounted
+          if (p2pHandlersRef?.current?.onMessage) {
+            p2pHandlersRef.current.onMessage(msg);
           }
         },
         onDisconnect: () => {
