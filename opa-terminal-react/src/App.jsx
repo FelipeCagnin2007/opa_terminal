@@ -9,6 +9,7 @@ import { BlackopaTab } from './components/organisms/BlackopaTab';
 import { LinguopaTab } from './components/organisms/LinguopaTab';
 import { ExecutorTab } from './components/organisms/ExecutorTab';
 import { LeaderboardTab } from './components/organisms/LeaderboardTab';
+import { PokemonTab } from './components/organisms/PokemonTab';
 import { useAuthContext } from './context/AuthContext';
 import { AuthScreen } from './components/organisms/AuthScreen';
 
@@ -39,6 +40,7 @@ function AppContent() {
         <Route path="/multiplayer" element={<MultiplayerTab />} />
         <Route path="/blackopa" element={<BlackopaTab />} />
         <Route path="/linguopa" element={<LinguopaTab />} />
+        <Route path="/pokemon" element={<PokemonTab />} />
         <Route path="/gotchi" element={<OpaGotchiTab />} />
         <Route path="*" element={<Navigate to="/tradutor" replace />} />
       </Route>
