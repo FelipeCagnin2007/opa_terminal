@@ -73,10 +73,11 @@ export function PokemonBattleLobby({ myTeam, onBattleStart, onBack }) {
     setStatus('connecting');
     setErrorMsg('');
     try {
-      const { peer, peerId: id } = await createPeer();
+      const generatedCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+      const { peer, peerId: id } = await createPeer(generatedCode.toLowerCase());
       peerRef.current = peer;
       setPeerId(id);
-      setShortCode(getPeerShortCode(id));
+      setShortCode(generatedCode);
       setStatus('waiting'); // waiting for guest to connect
 
       hostListen(peer, {
