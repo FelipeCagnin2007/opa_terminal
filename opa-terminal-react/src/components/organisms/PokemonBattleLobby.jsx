@@ -63,8 +63,7 @@ export function PokemonBattleLobby({ myTeam, onBattleStart, onBack, p2pHandlersR
   const isHost = mode === 'host';
 
   const cleanup = useCallback(() => {
-    destroyPeer();
-    peerRef.current = null;
+    // Removed destroyPeer from here because it drops connection when moving to Arena
   }, []);
 
   useEffect(() => { return cleanup; }, [cleanup]);
@@ -202,7 +201,7 @@ export function PokemonBattleLobby({ myTeam, onBattleStart, onBack, p2pHandlersR
     >
       {/* Header */}
       <div className="flex items-center gap-4">
-        <button onClick={onBack} className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white/40 hover:text-white transition-all">
+        <button onClick={() => { destroyPeer(); onBack(); }} className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white/40 hover:text-white transition-all">
           <ArrowLeft className="w-4 h-4" />
         </button>
         <div>
