@@ -64,6 +64,7 @@ export function PokemonTab() {
              <PokemonTab.Lobby 
                onBack={() => setCurrentView('builder')}
                onBattleStart={handleBattleStart}
+               p2pHandlersRef={p2pHandlersRef}
              />
            </motion.div>
         )}
