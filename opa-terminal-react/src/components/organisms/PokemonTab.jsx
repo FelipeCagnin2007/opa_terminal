@@ -2,12 +2,13 @@
  * PokemonTab — Main router and container for the Pokémon ecosystem.
  * Handles switching between Team Builder, Battle Lobby, and Battle Arena.
  */
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthContext } from '../../context/AuthContext';
 import { PokemonTeamBuilder } from './PokemonTeamBuilder';
 import { PokemonBattleLobby } from './PokemonBattleLobby';
 import { PokemonBattleArena } from './PokemonBattleArena';
+import { destroyPeer } from '../../utils/pokemonP2P';
 
 export function PokemonTab() {
   const { profile } = useAuthContext();
@@ -29,9 +30,14 @@ export function PokemonTab() {
   };
 
   const handleExitArena = () => {
+    destroyPeer();
     setBattleState(null);
     setCurrentView('builder');
   };
+
+  useEffect(() => {
+    return () => destroyPeer();
+  }, []);
 
   return (
     <div className="flex flex-col h-full p-2 md:p-6 lg:p-10 relative overflow-hidden">
