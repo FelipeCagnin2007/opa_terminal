@@ -10,6 +10,7 @@ import { LinguopaTab } from './components/organisms/LinguopaTab';
 import { ExecutorTab } from './components/organisms/ExecutorTab';
 import { LeaderboardTab } from './components/organisms/LeaderboardTab';
 import { PokemonTab } from './components/organisms/PokemonTab';
+import { AboutTab } from './components/organisms/AboutTab';
 import { useAuthContext } from './context/AuthContext';
 import { AuthScreen } from './components/organisms/AuthScreen';
 
@@ -33,6 +34,7 @@ function AppContent() {
       <Route element={<MainTerminalLayout />}>
         <Route path="/" element={<Navigate to="/tradutor" replace />} />
         <Route path="/tradutor" element={<TranslatorTab />} />
+        <Route path="/sobre" element={<AboutTab />} />
         <Route path="/referencia" element={<ReferenceTab />} />
         <Route path="/executor" element={<ExecutorTab />} />
         <Route path="/chat" element={<ChatTab />} />

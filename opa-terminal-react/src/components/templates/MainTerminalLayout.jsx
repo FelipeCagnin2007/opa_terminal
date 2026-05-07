@@ -8,6 +8,7 @@ import { usePet } from '../../context/PetContext';
 
 const TABS = [
   { id: 'tradutor', label: 'Tradutor', icon: Terminal, path: '/tradutor' },
+  { id: 'sobre', label: 'Sobre', icon: Info, path: '/sobre' },
   { id: 'referencia', label: 'Referência', icon: Book, path: '/referencia' },
   { id: 'executor', label: 'Executor', icon: Shield, path: '/executor' },
   { id: 'chat', label: 'Chat', icon: MessageSquare, path: '/chat' },
