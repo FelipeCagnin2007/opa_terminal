@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Shield, Mail, User, ArrowRight, Lock } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
+import { Button } from '../atoms/Button';
 
 export function AuthScreen() {
   const [view, setView] = useState('login'); 

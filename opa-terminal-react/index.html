@@ -8,6 +8,30 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet">
+    <script>
+      // Sistema de Recuperação Automática (Anti-Travamento)
+      (function() {
+        const handleAuthError = (error) => {
+          const errorMsg = error?.message || error?.toString() || '';
+          const isAuthError = errorMsg.includes('Refresh Token') || 
+                             errorMsg.includes('AuthApiError') || 
+                             errorMsg.includes('invalid_grant');
+
+          if (isAuthError) {
+            console.warn('[RECOVERY] Erro de autenticação detectado. Limpando storage...');
+            localStorage.clear();
+            sessionStorage.clear();
+            // Evita loop de recarregamento infinito
+            if (!window.location.search.includes('recovered=true')) {
+              window.location.href = window.location.pathname + '?recovered=true';
+            }
+          }
+        };
+
+        window.addEventListener('unhandledrejection', (event) => handleAuthError(event.reason));
+        window.onerror = (msg) => handleAuthError(msg);
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
