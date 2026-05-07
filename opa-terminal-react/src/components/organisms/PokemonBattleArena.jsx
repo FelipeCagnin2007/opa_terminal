@@ -1,38 +1,33 @@
 /**
- * PokemonBattleArena — Turn-based battle UI using the P2P connection.
- * Shows HP bars, move selection, and battle log.
+ * PokemonBattleArena — Turn-based battle UI using the P2P connection or Bot mode.
+ * Shows HP bars, move selection, and battle log with FireRed aesthetics.
  */
 import { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Shield, Zap, RefreshCw, Trophy, Skull } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { RefreshCw } from 'lucide-react';
 import { initBattlePokemon, resolveTurn } from '../../utils/pokemonBattleEngine';
 import { sendMessage, MSG } from '../../utils/pokemonP2P';
-import { TYPE_COLORS_NEON } from '../../hooks/usePokemon';
+import { usePet } from '../../context/PetContext';
 
 function capitalize(str) {
   return str ? str.charAt(0).toUpperCase() + str.slice(1).replace(/-/g, ' ') : '';
 }
 
-function HpBar({ current, max, label, color }) {
+function HpBar({ current, max, label }) {
   const pct = Math.max(0, Math.min(100, (current / max) * 100));
-  let barColor = '#60d850'; // green
-  if (pct < 50) barColor = '#ffd840'; // yellow
-  if (pct < 20) barColor = '#ff5f5f'; // red
+  let barColor = '#48d0b0'; // Classic green
+  if (pct < 50) barColor = '#f8d030'; // Yellow
+  if (pct < 20) barColor = '#f85838'; // Red
 
   return (
-    <div className="flex flex-col gap-1 w-full">
-      <div className="flex justify-between items-end">
-        <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white/60">{label}</span>
-        <span className="text-[9px] font-black font-mono" style={{ color: barColor }}>
-          {current}/{max}
-        </span>
-      </div>
-      <div className="h-2 bg-black/50 rounded-full overflow-hidden border border-white/10 p-0.5">
+    <div className="flex items-center gap-1.5 w-full px-1">
+      <span className="text-[9px] sm:text-[10px] font-black text-pokemon-gold tracking-tighter" style={{ textShadow: '1px 1px 0px var(--color-pokemon-dark)' }}>{label}</span>
+      <div className="flex-1 h-2.5 sm:h-3 bg-pokemon-dark rounded-full overflow-hidden border-[1px] border-pokemon-dark flex items-center bg-[#506858] shadow-[inset_0_1px_2px_rgba(0,0,0,0.5)]">
         <motion.div
           initial={{ width: '100%' }}
           animate={{ width: `${pct}%` }}
-          transition={{ type: 'spring', bounce: 0, duration: 0.8 }}
-          className="h-full rounded-full"
+          transition={{ type: 'spring', bounce: 0, duration: 0.5 }}
+          className="h-full border-b border-black/20"
           style={{ background: barColor }}
         />
       </div>
@@ -43,50 +38,42 @@ function HpBar({ current, max, label, color }) {
 function PokemonSprite({ pokemon, isOpponent, isAttacking, isHit }) {
   if (!pokemon) return null;
   const sprite = isOpponent ? pokemon.sprite : (pokemon.spriteBack || pokemon.sprite);
-  const accent = TYPE_COLORS_NEON[pokemon.types?.[0]] || '#ffffff';
 
   return (
     <motion.div
       animate={{
-        y: isAttacking ? (isOpponent ? [0, 20, 0] : [0, -20, 0]) : 0,
-        x: isHit ? [-5, 5, -5, 5, 0] : 0,
-        opacity: pokemon.isFainted ? 0.2 : 1,
-        filter: pokemon.isFainted ? 'grayscale(100%)' : 'none',
+        y: isAttacking ? (isOpponent ? [0, 15, 0] : [0, -15, 0]) : 0,
+        x: isHit ? [-4, 4, -4, 4, 0] : 0,
+        opacity: pokemon.isFainted ? 0 : 1,
       }}
       transition={{ duration: 0.3 }}
-      className={`relative w-40 h-40 flex items-center justify-center ${pokemon.isFainted ? 'translate-y-10' : ''} transition-transform duration-1000`}
+      className={`relative w-full h-full flex items-center justify-center ${pokemon.isFainted ? 'translate-y-10' : ''} transition-transform duration-1000 z-10`}
     >
-      <div
-        className="absolute bottom-0 w-32 h-8 rounded-[100%] blur-md"
-        style={{ background: `${accent}40`, transform: 'scaleY(0.5)' }}
-      />
       <img
         src={sprite}
         alt={pokemon.name}
         className="w-full h-full object-contain relative z-10"
         style={{
-          filter: `drop-shadow(0 0 10px ${accent}40)`,
-          transform: isOpponent ? 'scale(1)' : 'scale(1.2)',
+          transform: isOpponent ? 'scale(1.2)' : 'scale(1.5)',
+          imageRendering: 'pixelated'
         }}
       />
     </motion.div>
   );
 }
 
-export function PokemonBattleArena({ isHost, myTeamData, opponentTeamData, onExit, p2pHandlers }) {
-  const [logs, setLogs] = useState(['BATTLE_INITIATED!']);
-  const [turnState, setTurnState] = useState('waiting'); // waiting | selecting | animating | end
+export function PokemonBattleArena({ isHost, isBot, difficulty, myTeamData, opponentTeamData, onExit, p2pHandlers }) {
+  const { addReward } = usePet();
+  const [logs, setLogs] = useState(['Uma batalha selvagem começou!']);
+  const [turnState, setTurnState] = useState('init'); // init | waiting | selecting | animating | end
   const [winner, setWinner] = useState(null);
+  const logsEndRef = useRef(null);
 
   // Battle State
   const [myTeam, setMyTeam] = useState(() => myTeamData.map(p => initBattlePokemon(p)));
   const [oppTeam, setOppTeam] = useState(() => opponentTeamData.map(p => initBattlePokemon(p)));
   const [myActiveIdx, setMyActiveIdx] = useState(0);
   const [oppActiveIdx, setOppActiveIdx] = useState(0);
-
-  // Animations
-  const [animatingAttacker, setAnimatingAttacker] = useState(null);
-  const [animatingHit, setAnimatingHit] = useState(null);
 
   // Actions
   const [myAction, setMyAction] = useState(null);
@@ -95,8 +82,6 @@ export function PokemonBattleArena({ isHost, myTeamData, opponentTeamData, onExi
   const myActive = myTeam[myActiveIdx];
   const oppActive = oppTeam[oppActiveIdx];
 
-  const logMsg = (msg) => setLogs(prev => [...prev, msg]);
-
   // Hook into P2P messages
   useEffect(() => {
     p2pHandlers.current = {
@@ -104,13 +89,10 @@ export function PokemonBattleArena({ isHost, myTeamData, opponentTeamData, onExi
         if (msg.type === MSG.ACTION_SELECTED) {
           if (isHost) {
             setOppAction(msg.payload);
-          } else {
-            // Unused by guest directly, guest waits for STATE_UPDATE
           }
         }
         if (msg.type === MSG.STATE_UPDATE) {
           if (!isHost) {
-            // Apply host's resolved state
             setMyTeam(msg.payload.guestTeam);
             setOppTeam(msg.payload.hostTeam);
             setMyActiveIdx(msg.payload.guestActive);
@@ -133,111 +115,144 @@ export function PokemonBattleArena({ isHost, myTeamData, opponentTeamData, onExi
       }
     };
     
-    // Start first turn
-    if (turnState === 'waiting') {
-      setTimeout(() => setTurnState('selecting'), 1000);
+    if (turnState === 'init') {
+      setTimeout(() => setTurnState('selecting'), 1500);
     }
   }, [isHost, turnState, p2pHandlers]);
+
+  // Bot logic
+  useEffect(() => {
+    if (isBot && (turnState === 'selecting' || turnState === 'waiting') && !oppAction && oppActive) {
+      const delay = Math.random() * 1000 + 800; // 0.8s - 1.8s
+      const timer = setTimeout(() => {
+        const validMoves = oppActive.moves || [];
+        const randomIndex = validMoves.length > 0 ? Math.floor(Math.random() * validMoves.length) : 0;
+        setOppAction({ type: 'move', moveIndex: randomIndex });
+      }, delay);
+      return () => clearTimeout(timer);
+    }
+  }, [isBot, turnState, oppAction, oppActive]);
 
   // Host: Resolve turn when both actions are in
   useEffect(() => {
     if (!isHost || turnState !== 'waiting' || !myAction || !oppAction) return;
 
     const resolveFullTurn = async () => {
-      setTurnState('animating');
-      const turnLogs = [];
-      let nextMyTeam = [...myTeam];
-      let nextOppTeam = [...oppTeam];
-      let myP = { ...nextMyTeam[myActiveIdx] };
-      let oppP = { ...nextOppTeam[oppActiveIdx] };
+      try {
+        setTurnState('animating');
+        // Small delay for drama/readability
+        await new Promise(r => setTimeout(r, 1000));
 
-      // Determine order (simplification: Speed stat only, no priority moves for now)
-      const mySpeed = myP.stats?.speed || 50;
-      const oppSpeed = oppP.stats?.speed || 50;
-      const iGoFirst = mySpeed >= oppSpeed;
+        const turnLogs = [];
+        let nextMyTeam = [...myTeam];
+        let nextOppTeam = [...oppTeam];
+        let myP = { ...nextMyTeam[myActiveIdx] };
+        let oppP = { ...nextOppTeam[oppActiveIdx] };
 
-      const firstActor = iGoFirst ? { p: myP, a: myAction, isHost: true } : { p: oppP, a: oppAction, isHost: false };
-      const secondActor = iGoFirst ? { p: oppP, a: oppAction, isHost: false } : { p: myP, a: myAction, isHost: true };
+        const mySpeed = myP.stats?.speed || 50;
+        const oppSpeed = oppP.stats?.speed || 50;
+        const iGoFirst = mySpeed >= oppSpeed;
 
-      const execAction = (actor, target) => {
-        if (actor.a.type === 'move') {
-          const move = actor.p.moves[actor.a.moveIndex];
-          const { attackerAfter, defenderAfter, logs } = resolveTurn(actor.p, target.p, move);
-          actor.p = attackerAfter;
-          target.p = defenderAfter;
-          turnLogs.push(...logs);
-        } else if (actor.a.type === 'switch') {
-           // Swap pokemon logic
-           turnLogs.push(`${actor.p.name} switched to ${actor.a.newActiveName}!`);
-           // actual index swap happens outside
+        const firstActor = iGoFirst ? { p: myP, a: myAction, isHost: true } : { p: oppP, a: oppAction, isHost: false };
+        const secondActor = iGoFirst ? { p: oppP, a: oppAction, isHost: false } : { p: myP, a: myAction, isHost: true };
+
+        const execAction = (actor, target) => {
+          if (actor.a.type === 'move') {
+            const move = actor.p.moves[actor.a.moveIndex];
+            const { attackerAfter, defenderAfter, logs: resLogs } = resolveTurn(actor.p, target.p, move);
+            actor.p = attackerAfter;
+            target.p = defenderAfter;
+            turnLogs.push(...resLogs);
+          } else if (actor.a.type === 'switch') {
+             turnLogs.push(`${actor.p.name} trocou para ${actor.a.newActiveName}!`);
+          }
+        };
+
+        execAction(firstActor, secondActor);
+        if (!secondActor.p.isFainted) {
+          execAction(secondActor, firstActor);
         }
-      };
 
-      // 1. First actor
-      execAction(firstActor, secondActor);
+        if (iGoFirst) { myP = firstActor.p; oppP = secondActor.p; }
+        else { oppP = firstActor.p; myP = secondActor.p; }
 
-      // 2. Second actor (if not fainted)
-      if (!secondActor.p.isFainted) {
-        execAction(secondActor, firstActor);
-      }
+        nextMyTeam[myActiveIdx] = myP;
+        nextOppTeam[oppActiveIdx] = oppP;
 
-      // Update refs
-      if (iGoFirst) { myP = firstActor.p; oppP = secondActor.p; }
-      else { oppP = firstActor.p; myP = secondActor.p; }
+        const hostAlive = nextMyTeam.some(p => !p.isFainted);
+        const guestAlive = nextOppTeam.some(p => !p.isFainted);
+        
+        let battleWinner = null;
+        if (!hostAlive) battleWinner = 'guest';
+        if (!guestAlive) battleWinner = 'host';
 
-      nextMyTeam[myActiveIdx] = myP;
-      nextOppTeam[oppActiveIdx] = oppP;
+        let nextMyIdx = myActiveIdx;
+        let nextOppIdx = oppActiveIdx;
+        
+        if (myP.isFainted && hostAlive) {
+          nextMyIdx = nextMyTeam.findIndex(p => !p.isFainted);
+          turnLogs.push(`Jogador enviou ${nextMyTeam[nextMyIdx].name}!`);
+        }
+        if (oppP.isFainted && guestAlive) {
+          nextOppIdx = nextOppTeam.findIndex(p => !p.isFainted);
+          turnLogs.push(`Oponente enviou ${nextOppTeam[nextOppIdx].name}!`);
+        }
 
-      // Check win condition
-      const hostAlive = nextMyTeam.some(p => !p.isFainted);
-      const guestAlive = nextOppTeam.some(p => !p.isFainted);
-      
-      let battleWinner = null;
-      if (!hostAlive) battleWinner = 'guest';
-      if (!guestAlive) battleWinner = 'host';
+        setMyTeam(nextMyTeam);
+        setOppTeam(nextOppTeam);
+        setMyActiveIdx(nextMyIdx);
+        setOppActiveIdx(nextOppIdx);
+        setLogs(prev => [...prev, ...turnLogs]);
 
-      // Auto-switch fainted (simplified: just pick next alive)
-      let nextMyIdx = myActiveIdx;
-      let nextOppIdx = oppActiveIdx;
-      
-      if (myP.isFainted && hostAlive) {
-        nextMyIdx = nextMyTeam.findIndex(p => !p.isFainted);
-        turnLogs.push(`HOST sent out ${nextMyTeam[nextMyIdx].name}!`);
-      }
-      if (oppP.isFainted && guestAlive) {
-        nextOppIdx = nextOppTeam.findIndex(p => !p.isFainted);
-        turnLogs.push(`GUEST sent out ${nextOppTeam[nextOppIdx].name}!`);
-      }
+        const stateUpdate = {
+          hostTeam: nextMyTeam,
+          guestTeam: nextOppTeam,
+          hostActive: nextMyIdx,
+          guestActive: nextOppIdx,
+          logs: turnLogs,
+          winner: battleWinner
+        };
 
-      setMyTeam(nextMyTeam);
-      setOppTeam(nextOppTeam);
-      setMyActiveIdx(nextMyIdx);
-      setOppActiveIdx(nextOppIdx);
-      setLogs(prev => [...prev, ...turnLogs]);
+        if (!isBot) {
+          sendMessage(MSG.STATE_UPDATE, stateUpdate);
+        }
 
-      const stateUpdate = {
-        hostTeam: nextMyTeam,
-        guestTeam: nextOppTeam,
-        hostActive: nextMyIdx,
-        guestActive: nextOppIdx,
-        logs: turnLogs,
-        winner: battleWinner
-      };
-
-      sendMessage(MSG.STATE_UPDATE, stateUpdate);
-
-      if (battleWinner) {
-        setWinner(battleWinner);
-        setTurnState('end');
-      } else {
+        if (battleWinner) {
+          setWinner(battleWinner);
+          setTurnState('end');
+          
+          // Give reward if user won
+          const userWon = battleWinner === (isHost ? 'host' : 'guest');
+          if (userWon && isBot) {
+            const rewards = {
+              'easy':   { coins: 50,  xp: 10 },
+              'medium': { coins: 100, xp: 25 },
+              'hard':   { coins: 250, xp: 60 },
+              'elite':  { coins: 600, xp: 150 }
+            };
+            const r = rewards[difficulty] || rewards['medium'];
+            addReward(r.coins, r.xp);
+            setLogs(prev => [...prev, `[SISTEMA] RECOMPENSA_RECEBIDA: +${r.coins} OPACOINS!`]);
+          }
+        } else {
+          setMyAction(null);
+          setOppAction(null);
+          setTurnState('selecting');
+        }
+      } catch (err) {
+        console.error("BATTLE_FATAL_ERROR:", err);
+        setTurnState('selecting');
         setMyAction(null);
         setOppAction(null);
-        setTurnState('selecting');
       }
     };
 
     resolveFullTurn();
-  }, [isHost, myAction, oppAction, turnState, myTeam, oppTeam, myActiveIdx, oppActiveIdx]);
+  }, [isHost, isBot, myAction, oppAction, turnState, myTeam, oppTeam, myActiveIdx, oppActiveIdx]);
+
+  useEffect(() => {
+    logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [logs]);
 
   const handleSelectMove = (moveIndex) => {
     if (turnState !== 'selecting') return;
@@ -246,149 +261,139 @@ export function PokemonBattleArena({ isHost, myTeamData, opponentTeamData, onExi
     setMyAction(action);
     setTurnState('waiting');
     
-    if (isHost) {
-      // Host just waits for guest action
-    } else {
-      // Guest sends action to host
+    if (!isBot && !isHost) {
       sendMessage(MSG.ACTION_SELECTED, action);
     }
   };
 
-  const myAccent = TYPE_COLORS_NEON[myActive?.types?.[0]] || '#ffffff';
-  const oppAccent = TYPE_COLORS_NEON[oppActive?.types?.[0]] || '#ffffff';
-
   return (
-    <div className="flex flex-col h-full bg-black">
-      {/* Top Bar */}
-      <div className="flex justify-between items-center p-4 border-b border-white/5 bg-surface/50 backdrop-blur-md">
-        <div className="flex items-center gap-3">
-          <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse box-glow" />
-          <span className="text-[10px] font-black uppercase tracking-[0.3em] text-red-400">BATTLE_PROTOCOL_ACTIVE</span>
-        </div>
-        <div className="flex items-center gap-2">
+    <div className="flex flex-col h-full bg-black font-mono select-none overflow-hidden touch-manipulation">
+      {/* Top Header */}
+            <div className="flex justify-between items-center px-4 py-1.5 bg-gray-900 border-b-[3px] border-pokemon-dark">
+        <div className="flex items-center gap-1.5">
            {myTeam.map((p, i) => (
-             <div key={i} className={`w-3 h-3 rounded-full border border-white/20 ${p.isFainted ? 'bg-black/50' : 'bg-glow box-glow'}`} />
+             <div key={i} className={`w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full border-2 border-gray-700 ${p.isFainted ? 'bg-pokemon-red' : 'bg-pokemon-teal'}`} />
            ))}
-           <span className="mx-2 text-white/20">VS</span>
+        </div>
+        <span className="text-[10px] sm:text-xs font-black text-white/50 px-2 tracking-widest">VS</span>
+        <div className="flex items-center gap-1.5">
            {oppTeam.map((p, i) => (
-             <div key={i} className={`w-3 h-3 rounded-full border border-white/20 ${p.isFainted ? 'bg-black/50' : 'bg-cyber-blue box-glow'}`} />
+             <div key={i} className={`w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full border-2 border-gray-700 ${p.isFainted ? 'bg-pokemon-red' : 'bg-pokemon-teal'}`} />
            ))}
         </div>
       </div>
 
-      {/* Arena */}
-      <div className="flex-1 relative overflow-hidden flex flex-col justify-between p-8">
-        {/* Background Grid */}
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:40px_40px] [transform:perspective(1000px)_rotateX(60deg)_translateY(-100px)_translateZ(-200px)] opacity-50 pointer-events-none" />
+      {/* Arena Battlefield */}
+      <div className="flex-1 relative overflow-hidden bg-gradient-to-b from-[#f0f8f8] to-[#a0d8a8]">
+        
+        {/* Opponent Sprite (Top Right) */}
+        <div className="absolute top-[8%] sm:top-[5%] right-[5%] w-[35%] max-w-[160px] aspect-square flex items-end justify-center">
+          <div className="absolute bottom-[10%] w-[130%] h-[35%] bg-pokemon-green rounded-[100%] border border-pokemon-green-dark" />
+          <PokemonSprite pokemon={oppActive} isOpponent={true} />
+        </div>
 
-        {/* Opponent Area (Top Right) */}
-        <div className="self-end flex items-end gap-6 relative z-10 w-full max-w-lg">
-          <div className="flex-1 bg-surface/80 backdrop-blur-xl border border-white/10 rounded-2xl p-4 shadow-2xl relative overflow-hidden">
-            <div className="absolute inset-0 opacity-10" style={{ background: `linear-gradient(90deg, transparent, ${oppAccent})` }} />
-            <div className="flex justify-between items-start mb-2">
-              <span className="text-white font-black uppercase tracking-[0.2em]">{capitalize(oppActive?.name)}</span>
-              <span className="text-[10px] font-black text-white/40">Lv{oppActive?.level}</span>
+        {/* Opponent HP Box (Top Left) */}
+        <div className="absolute top-[12%] sm:top-[8%] left-[3%] w-[55%] max-w-[240px] z-20">
+          <div className="bg-pokemon-light border-2 border-pokemon-dark p-1.5 shadow-lg" style={{ borderRadius: '0 12px 0 12px' }}>
+            <div className="flex justify-between items-start mb-0.5 px-1">
+              <span className="text-pokemon-dark font-black uppercase text-[10px] sm:text-sm tracking-tighter" style={{ textShadow: '1px 1px 0px var(--color-pokemon-gray)' }}>{capitalize(oppActive?.name)}</span>
+              <span className="text-[9px] sm:text-xs font-black text-pokemon-dark">Lv{oppActive?.level}</span>
             </div>
-            <HpBar current={oppActive?.currentHp || 0} max={oppActive?.maxHp || 1} label="INTEGRITY" />
+            <HpBar current={oppActive?.currentHp || 0} max={oppActive?.maxHp || 1} label="HP" />
             {oppActive?.status && (
-              <span className="mt-2 inline-block px-2 py-0.5 rounded text-[8px] font-black uppercase bg-red-500/20 text-red-400 border border-red-500/40">
+              <span className="mt-1 ml-1 inline-block px-1 py-0.5 rounded text-[8px] font-black uppercase bg-pokemon-dark text-white shadow-[inset_1px_1px_0_rgba(0,0,0,0.5)]">
                 {oppActive.status}
               </span>
             )}
           </div>
-          <PokemonSprite pokemon={oppActive} isOpponent={true} />
         </div>
 
-        {/* Player Area (Bottom Left) */}
-        <div className="self-start flex items-end gap-6 relative z-10 w-full max-w-lg mt-12">
+        {/* Player Sprite (Bottom Left) */}
+        <div className="absolute bottom-[20%] sm:bottom-[15%] left-[5%] w-[45%] max-w-[180px] aspect-square flex items-end justify-center">
+          <div className="absolute bottom-[5%] w-[130%] h-[30%] bg-pokemon-green rounded-[100%] border border-pokemon-green-dark" />
           <PokemonSprite pokemon={myActive} isOpponent={false} />
-          <div className="flex-1 bg-surface/80 backdrop-blur-xl border border-white/10 rounded-2xl p-4 shadow-2xl relative overflow-hidden">
-            <div className="absolute inset-0 opacity-10" style={{ background: `linear-gradient(-90deg, transparent, ${myAccent})` }} />
-            <div className="flex justify-between items-start mb-2">
-              <span className="text-white font-black uppercase tracking-[0.2em]">{capitalize(myActive?.name)}</span>
-              <span className="text-[10px] font-black text-white/40">Lv{myActive?.level}</span>
+        </div>
+
+        {/* Player HP Box (Bottom Right) */}
+        <div className="absolute bottom-[10%] sm:bottom-[8%] right-[3%] w-[65%] max-w-[260px] z-20">
+          <div className="bg-pokemon-light border-2 border-pokemon-dark p-1.5 shadow-lg" style={{ borderRadius: '12px 0 12px 0' }}>
+            <div className="flex justify-between items-start mb-0.5 px-1">
+              <span className="text-pokemon-dark font-black uppercase text-[10px] sm:text-sm tracking-tighter" style={{ textShadow: '1px 1px 0px var(--color-pokemon-gray)' }}>{capitalize(myActive?.name)}</span>
+              <span className="text-[9px] sm:text-xs font-black text-pokemon-dark">Lv{myActive?.level}</span>
             </div>
-            <HpBar current={myActive?.currentHp || 0} max={myActive?.maxHp || 1} label="INTEGRITY" />
+            <HpBar current={myActive?.currentHp || 0} max={myActive?.maxHp || 1} label="HP" />
             {myActive?.status && (
-              <span className="mt-2 inline-block px-2 py-0.5 rounded text-[8px] font-black uppercase bg-red-500/20 text-red-400 border border-red-500/40">
+              <span className="mt-1 ml-1 inline-block px-1 py-0.5 rounded text-[8px] font-black uppercase bg-pokemon-dark text-white shadow-[inset_1px_1px_0_rgba(0,0,0,0.5)]">
                 {myActive.status}
               </span>
             )}
-          </div>
-        </div>
-      </div>
-
-      {/* Control Panel */}
-      <div className="h-64 grid grid-cols-1 md:grid-cols-2 border-t border-white/5 bg-surface/80 backdrop-blur-xl z-20">
-        {/* Battle Log */}
-        <div className="p-4 border-r border-white/5 overflow-y-auto flex flex-col gap-2 font-mono text-[10px] uppercase tracking-[0.1em]">
-          {logs.map((log, i) => (
-            <div key={i} className={`${i === logs.length - 1 ? 'text-white' : 'text-white/40'} flex items-start gap-2`}>
-              <span className="text-glow opacity-50">&gt;</span>
-              <span>{log}</span>
-            </div>
-          ))}
-          {/* Scroll anchor logic ideally goes here */}
-        </div>
-
-        {/* Actions */}
-        <div className="p-6 flex flex-col gap-4">
-          {winner ? (
-            <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center">
-              <Trophy className={`w-12 h-12 ${winner === (isHost ? 'host' : 'guest') ? 'text-yellow-400' : 'text-white/20'}`} />
-              <div>
-                <h3 className="text-white font-black text-xl uppercase tracking-[0.3em]">
-                  {winner === (isHost ? 'host' : 'guest') ? 'VICTORY' : 'DEFEAT'}
-                </h3>
-                <p className="text-[9px] text-white/40 mt-1 uppercase tracking-[0.2em]">PROTOCOL_TERMINATED</p>
-              </div>
-              <button onClick={onExit} className="mt-4 px-8 py-3 btn-premium text-[10px]">
-                EXIT_ARENA
-              </button>
-            </div>
-          ) : turnState === 'selecting' ? (
-            <>
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-[10px] font-black uppercase tracking-[0.3em] text-white/50">AVAILABLE_MOVES</span>
-                <span className="text-[9px] font-black uppercase text-glow animate-pulse">AWAITING_INPUT</span>
-              </div>
-              <div className="grid grid-cols-2 gap-3 flex-1">
-                {myActive?.moves?.map((m, i) => {
-                  const typeColor = TYPE_COLORS_NEON[m.type] || '#ffffff';
-                  return (
-                    <button
-                      key={i}
-                      onClick={() => handleSelectMove(i)}
-                      className="relative p-3 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-all text-left flex flex-col justify-center overflow-hidden group"
-                    >
-                      <div className="absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity" style={{ background: typeColor }} />
-                      <div className="flex justify-between items-center w-full">
-                        <span className="text-[10px] font-black uppercase tracking-[0.1em] text-white/90 truncate">
-                          {capitalize(m.name)}
-                        </span>
-                        <span className="text-[8px] font-black text-white/30">{myActive.pp[m.name]}/{m.pp}</span>
-                      </div>
-                      <div className="flex justify-between mt-2">
-                        <span className="text-[7px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded border" style={{ color: typeColor, borderColor: `${typeColor}40`, background: `${typeColor}10` }}>
-                          {m.type}
-                        </span>
-                        <span className="text-[8px] font-black text-white/40">
-                          PWR: {m.power || '--'}
-                        </span>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </>
-          ) : (
-            <div className="flex-1 flex flex-col items-center justify-center gap-4 text-white/30">
-              <RefreshCw className="w-8 h-8 animate-spin text-glow/50" />
-              <span className="text-[10px] font-black uppercase tracking-[0.3em]">
-                {turnState === 'waiting' ? 'WAITING_FOR_OPPONENT' : 'RESOLVING_TURN_DATA'}
+            <div className="flex justify-end mt-1 border-t-2 border-pokemon-gray pt-0.5 px-1">
+              <span className="text-[10px] sm:text-xs font-black text-pokemon-dark font-mono tracking-tighter">
+                {myActive?.currentHp || 0} / {myActive?.maxHp || 1}
               </span>
             </div>
-          )}
+          </div>
+        </div>
+
+      </div>
+
+      {/* Control Panel (Dialogue Box style) */}
+      <div className="h-[35vh] min-h-[220px] max-h-[300px] border-t-8 border-pokemon-dark bg-pokemon-dark p-1.5 sm:p-2 flex flex-col">
+        <div className="flex-1 bg-white rounded-lg flex flex-col sm:flex-row border-4 border-pokemon-purple shadow-[0_0_0_4px_theme(colors.pokemon.red)] overflow-hidden m-0.5 sm:m-1">
+          
+          {/* Battle Log */}
+          <div className="w-full sm:w-1/2 p-3 sm:p-4 border-b-4 sm:border-b-0 sm:border-r-4 border-pokemon-purple flex-1 overflow-y-auto flex flex-col gap-2 sm:gap-3 font-mono text-[11px] sm:text-[13px] uppercase text-pokemon-dark font-black leading-snug" style={{ textShadow: '1px 1px 0px var(--color-pokemon-gray)' }}>
+            {logs.map((log, i) => (
+              <div key={i} className="flex items-start gap-1.5">
+                <span className="text-[#d05068] mt-0.5 sm:mt-0">&gt;</span>
+                <span className={i === logs.length - 1 ? 'opacity-100' : 'opacity-60'}>{log}</span>
+              </div>
+            ))}
+            <div ref={logsEndRef} />
+          </div>
+
+          {/* Actions */}
+          <div className="w-full sm:w-1/2 flex-1 bg-[#f8f8f8]">
+            {winner ? (
+              <div className="h-full flex flex-col items-center justify-center gap-3 text-center p-4">
+                <h3 className="text-pokemon-dark font-black text-lg sm:text-xl uppercase tracking-widest" style={{ textShadow: '1px 1px 0px var(--color-pokemon-gray)' }}>
+                  {winner === (isHost ? 'host' : 'guest') ? 'VITÓRIA!' : 'DERROTA...'}
+                </h3>
+                <button onClick={onExit} className="px-6 py-3 sm:py-2 bg-pokemon-red text-white font-black rounded-lg text-xs sm:text-sm hover:bg-pokemon-red/80 uppercase border-2 border-pokemon-dark shadow-[2px_2px_0_theme(colors.pokemon.dark)] active:translate-y-px active:shadow-none w-full sm:w-auto">
+                  SAIR DA BATALHA
+                </button>
+              </div>
+            ) : turnState === 'selecting' ? (
+              <div className="h-full flex flex-col p-1.5 sm:p-2">
+                <div className="grid grid-cols-2 grid-rows-2 gap-1.5 sm:gap-2 h-full">
+                  {myActive?.moves?.map((m, i) => {
+                    return (
+                      <button
+                        key={i}
+                        onClick={() => handleSelectMove(i)}
+                        className="bg-white border-2 border-pokemon-gray rounded-lg p-2 flex flex-col justify-between hover:bg-pokemon-light hover:border-pokemon-dark transition-colors shadow-[2px_2px_0_theme(colors.pokemon.gray)] active:translate-y-px active:shadow-none"
+                      >
+                        <div className="text-[10px] sm:text-[11px] font-black uppercase text-pokemon-dark truncate w-full text-left" style={{ textShadow: '1px 1px 0px #ffffff' }}>
+                          {capitalize(m.name)}
+                        </div>
+                        <div className="flex justify-between items-center w-full">
+                          <span className="text-[9px] sm:text-[10px] font-black text-pokemon-dark tracking-tighter">PP {myActive.pp[m.name]}/{m.pp}</span>
+                          <span className="text-[8px] sm:text-[9px] font-black text-white bg-pokemon-red px-1.5 py-0.5 rounded uppercase shadow-[inset_1px_1px_0_rgba(255,255,255,0.3)] border border-pokemon-dark">{m.type}</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center gap-3 sm:gap-4 text-[#404040]">
+                <RefreshCw className="w-6 h-6 sm:w-8 sm:h-8 animate-spin text-[#d05068]" />
+                <span className="text-[10px] sm:text-xs font-black uppercase tracking-widest" style={{ textShadow: '1px 1px 0px #d0d0d0' }}>
+                  {turnState === 'waiting' ? 'WAITING...' : turnState === 'init' ? 'INITIALIZING...' : 'FIGHTING!'}
+                </span>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

@@ -11,7 +11,7 @@ export function useLinguopa(pet, updatePet) {
   const [feedback, setFeedback] = useState(""); // 'correct', 'error'
 
   const nextWord = useCallback(() => {
-    const chars = "abcdefghijklmnopqrstuvwxyz";
+    const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
     let word = "";
     for (let i = 0; i < level; i++) {
         word += chars[Math.floor(Math.random() * chars.length)];
@@ -37,7 +37,7 @@ export function useLinguopa(pet, updatePet) {
   const check = useCallback((input) => {
     if (!isActive) return;
     
-    if (input.trim().toLowerCase() === currentWord) {
+    if (input.trim() === currentWord) {
       setScore(s => s + 1);
       setFeedback("correct");
       setStatus("CORRETO! +5 OPACOINS");

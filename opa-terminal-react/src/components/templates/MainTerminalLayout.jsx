@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation, Outlet, Link } from 'react-router-dom';
-import { Menu, X, Terminal, Shield, Book, Gamepad2, Info, MessageSquare, Users, LogOut, Cpu, Activity, Trophy, Coins, Zap, Swords } from 'lucide-react';
+import { Menu, X, Terminal, Shield, Book, Gamepad2, Info, MessageSquare, Users, LogOut, Cpu, Activity, Trophy, Coins, Zap, Swords, Sun, Moon } from 'lucide-react';
 import { NavTabs } from '../molecules/NavTabs';
 import { useAuthContext } from '../../context/AuthContext';
 import { usePet } from '../../context/PetContext';
@@ -21,9 +21,20 @@ const TABS = [
 
 export function MainTerminalLayout() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isLightMode, setIsLightMode] = useState(localStorage.getItem('theme') === 'light');
   const { logout, profile } = useAuthContext();
   const { pet } = usePet();
   const location = useLocation();
+
+  useEffect(() => {
+    if (isLightMode) {
+      document.body.classList.add('light');
+      localStorage.setItem('theme', 'light');
+    } else {
+      document.body.classList.remove('light');
+      localStorage.setItem('theme', 'dark');
+    }
+  }, [isLightMode]);
 
   return (
     <div className="terminal-container font-terminal">
@@ -34,66 +45,75 @@ export function MainTerminalLayout() {
       <header className="flex items-center justify-between gap-4 mb-8 md:mb-12 relative z-50">
         <div className="flex items-center gap-4 md:gap-6 min-w-0">
           <Link to="/" className="relative group shrink-0 hidden sm:block">
-            <div className="absolute inset-0 bg-glow/20 blur-xl rounded-full scale-0 group-hover:scale-150 transition-transform duration-500" />
-            <div className="p-4 bg-surface-brighter border border-white/5 rounded-2xl shadow-xl relative">
-              <Cpu className="text-glow w-6 h-6 animate-flicker" />
+            <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full scale-0 group-hover:scale-150 transition-transform duration-500" />
+            <div className="p-4 bg-surface-100 border border-border rounded-2xl shadow-main relative">
+              <Cpu className="text-primary w-6 h-6 animate-flicker" />
             </div>
           </Link>
 
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 md:gap-3 flex-wrap">
-              <h1 className="text-xl md:text-2xl font-black text-white tracking-[0.2em] md:tracking-[0.3em] truncate">
-                OPA<span className="text-glow">.CORE</span>
+              <h1 className="text-xl md:text-2xl font-bold text-text-main tracking-wider truncate">
+                OPA<span className="text-primary">.CORE</span>
               </h1>
-              <span className="text-[8px] bg-white/5 border border-white/10 px-2 py-0.5 rounded tracking-[0.2em] font-black text-neutral-400 shrink-0">v3.2_FIXED</span>
+              <span className="text-[8px] bg-surface-200 border border-border px-2 py-0.5 rounded tracking-widest font-bold text-text-muted shrink-0">v3.2_ESTÁVEL</span>
             </div>
 
             <div className="flex items-center gap-3 md:gap-5 mt-2 flex-wrap">
               <div className="hidden min-[400px]:flex items-center gap-2 opacity-40">
-                <Activity className="w-3 h-3 text-glow" />
-                <span className="text-[8px] md:text-[9px] uppercase tracking-widest font-bold">Lat: 12ms</span>
+                <Activity className="w-3 h-3 text-primary" />
+                <span className="text-[9px] uppercase tracking-widest font-bold">Latência: 12ms</span>
               </div>
 
               {profile ? (
                 <div className="flex items-center gap-4 md:gap-6 min-w-0">
                   <div className="flex items-center gap-2 min-w-0">
-                    <div className="w-1.5 h-1.5 rounded-full bg-glow animate-pulse box-glow shrink-0" />
-                    <span className="text-[9px] uppercase tracking-widest font-black text-glow/80 truncate max-w-[100px] md:max-w-[200px]">ID: {profile.nome}</span>
+                    <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse shrink-0" />
+                    <span className="text-[9px] uppercase tracking-widest font-bold text-primary/80 truncate max-w-[100px] md:max-w-[200px]">ID: {profile.nome}</span>
                   </div>
                   <div className="flex items-center gap-2 md:gap-3">
-                    <div className="flex items-center gap-1.5 md:gap-2 px-2 md:px-3 py-1 bg-surface-accent border border-white/5 rounded-lg shadow-inner">
-                      <Coins className="w-3 h-3 text-glow/80" />
-                      <span className="text-[9px] md:text-[10px] font-mono text-glow font-bold">{(pet?.coins ?? profile.coins ?? 0).toLocaleString()}</span>
+                    <div className="flex items-center gap-1.5 md:gap-2 px-2 md:px-3 py-1 bg-surface-200 border border-border rounded-lg shadow-inner">
+                      <Coins className="w-3 h-3 text-primary/80" />
+                      <span className="text-[9px] md:text-[10px] font-mono text-primary font-bold">{(pet?.coins ?? profile.coins ?? 0).toLocaleString()}</span>
                     </div>
-                    <div className="flex items-center gap-1.5 md:gap-2 px-2 md:px-3 py-1 bg-surface-accent border border-white/5 rounded-lg shadow-inner">
-                      <Zap className="w-3 h-3 text-cyber-blue/80" />
-                      <span className="text-[9px] md:text-[10px] font-mono text-cyber-blue font-bold">{(pet?.xp ?? profile.xp ?? 0).toLocaleString()}</span>
+                    <div className="flex items-center gap-1.5 md:gap-2 px-2 md:px-3 py-1 bg-surface-200 border border-border rounded-lg shadow-inner">
+                      <Zap className="w-3 h-3 text-accent/80" />
+                      <span className="text-[9px] md:text-[10px] font-mono text-accent font-bold">{(pet?.xp ?? profile.xp ?? 0).toLocaleString()}</span>
                     </div>
                   </div>
                 </div>
               ) : (
                 <div className="flex items-center gap-2 opacity-20 animate-pulse">
-                  <span className="text-[9px] uppercase tracking-widest font-black">Syncing...</span>
+                <span className="text-[9px] uppercase tracking-widest font-bold">Sincronizando...</span>
                 </div>
               )}
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-4 shrink-0">
+        <div className="flex items-center gap-2 md:gap-4 shrink-0">
+          <button
+            onClick={() => setIsLightMode(!isLightMode)}
+            className="p-2.5 text-text-muted bg-surface-100 border border-border rounded-xl active:scale-95 transition-all shadow-main hover:text-text-main hover:border-primary/40 group"
+            title={isLightMode ? "Ativar Tema Escuro" : "Ativar Tema Claro"}
+          >
+            {isLightMode ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+          </button>
+          
           <button
             onClick={() => setIsMenuOpen(!isMenuOpen)}
-            className="md:hidden p-2.5 text-neutral-400 bg-surface border border-white/5 rounded-xl active:scale-95 transition-all shadow-lg hover:text-white hover:bg-surface-brighter"
+            className="md:hidden p-2.5 text-text-muted bg-surface-100 border border-border rounded-xl active:scale-95 transition-all shadow-main hover:text-text-main hover:border-primary/40"
             aria-label="Menu"
           >
             {isMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
+          
           <button
             onClick={logout}
-            className="hidden md:flex items-center gap-3 px-6 py-3 bg-danger/10 hover:bg-danger/20 text-danger border border-danger/20 rounded-xl transition-all text-[10px] font-black tracking-widest uppercase group"
+            className="hidden md:flex items-center gap-3 px-6 py-3 bg-danger/10 hover:bg-danger/20 text-danger border border-danger/20 rounded-xl transition-all text-xs font-bold tracking-widest uppercase group"
           >
             <LogOut className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-            <span>TERMINATE_SESSION</span>
+            <span>SAIR</span>
           </button>
         </div>
       </header>
@@ -110,15 +130,15 @@ export function MainTerminalLayout() {
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 20 }}
-            className="md:hidden fixed inset-y-0 right-0 w-[80vw] max-w-sm bg-surface/98 backdrop-blur-3xl border-l border-white/5 z-50 p-6 flex flex-col gap-3 shadow-2xl overflow-y-auto"
+            className="md:hidden fixed inset-y-0 right-0 w-[80vw] max-w-sm bg-surface-100/98 backdrop-blur-3xl border-l border-border z-50 p-6 flex flex-col gap-3 shadow-main overflow-y-auto"
           >
             <div className="flex justify-between items-center mb-6">
               <span className="text-[10px] font-black text-neutral-500 tracking-[0.3em]">NAV_SYSTEM</span>
               <button
                 onClick={() => setIsMenuOpen(false)}
-                className="p-2 bg-white/5 rounded-lg hover:bg-white/10 transition-colors"
+                className="p-2 bg-surface-200 rounded-lg hover:bg-surface-300 transition-colors"
               >
-                <X className="text-neutral-400 w-4 h-4" />
+                <X className="text-text-muted w-4 h-4" />
               </button>
             </div>
             {TABS.map((tab) => (
@@ -126,14 +146,14 @@ export function MainTerminalLayout() {
                 key={tab.id}
                 to={tab.path}
                 onClick={() => setIsMenuOpen(false)}
-                className={`flex items-center gap-4 p-4 rounded-xl font-black uppercase tracking-[0.2em] text-[10px] transition-all active:scale-95 ${location.pathname === tab.path ? 'bg-glow/10 text-glow border border-glow/20 shadow-inner' : 'text-neutral-400 hover:bg-white/5 hover:text-white'
+                className={`flex items-center gap-4 p-4 rounded-xl font-black uppercase tracking-[0.2em] text-[10px] transition-all active:scale-95 ${location.pathname === tab.path ? 'bg-primary/10 text-primary border border-primary/20 shadow-pop' : 'text-text-muted hover:bg-surface-200 hover:text-text-main'
                   }`}
               >
-                <tab.icon className={`w-4 h-4 ${location.pathname === tab.path ? 'text-glow' : 'text-neutral-500'}`} />
+                <tab.icon className={`w-4 h-4 ${location.pathname === tab.path ? 'text-primary' : 'text-text-muted'}`} />
                 {tab.label}
               </Link>
             ))}
-            <div className="mt-8 pt-6 border-t border-white/5">
+            <div className="mt-8 pt-6 border-t border-border">
               <button
                 onClick={logout}
                 className="w-full flex items-center justify-center gap-3 p-4 rounded-xl font-black uppercase tracking-[0.2em] text-[10px] bg-danger/10 text-danger border border-danger/20 transition-all active:scale-95"
@@ -147,7 +167,7 @@ export function MainTerminalLayout() {
       </AnimatePresence>
 
       {/* Main Content Area */}
-      <main className="flex-grow w-full relative">
+      <main className="flex-grow w-full relative overflow-x-hidden">
         <AnimatePresence mode="wait">
           <motion.div
             key={location.pathname}
@@ -163,13 +183,13 @@ export function MainTerminalLayout() {
       </main>
 
       {/* Footer Info */}
-      <footer className="mt-12 pt-8 border-t border-white/5 flex flex-wrap gap-8 justify-between items-center text-[9px] text-white/20 font-bold uppercase tracking-[0.3em] pb-4">
+      <footer className="mt-12 pt-8 border-t border-border flex flex-wrap gap-8 justify-between items-center text-[9px] text-text-muted font-bold uppercase tracking-[0.3em] pb-4">
         <div className="flex gap-8">
-          <span className="flex items-center gap-2"><div className="w-1 h-1 rounded-full bg-glow box-glow" /> NETWORK: STABLE</span>
-          <span className="flex items-center gap-2"><div className="w-1 h-1 rounded-full bg-cyber-blue box-glow" /> CPU_LOAD: 0.04%</span>
-          <span className="hidden sm:inline-flex items-center gap-2"><div className="w-1 h-1 rounded-full bg-white/20" /> SYSTEM_UPTIME: 1.4M_CYCLES</span>
+          <span className="flex items-center gap-2"><div className="w-1 h-1 rounded-full bg-primary shadow-pop" /> REDE: ESTÁVEL</span>
+          <span className="flex items-center gap-2"><div className="w-1 h-1 rounded-full bg-accent shadow-pop" /> CARGA_CPU: 0.04%</span>
+          <span className="hidden sm:inline-flex items-center gap-2"><div className="w-1 h-1 rounded-full bg-text-muted" /> UPTIME_SISTEMA: 1.4M_CICLOS</span>
         </div>
-        <div className="text-white/10 hover:text-white/30 transition-colors cursor-default">
+        <div className="text-text-muted/40 hover:text-text-muted transition-colors cursor-default">
           &copy; 2077 OPA_CORP // PROTOCOL_CORE
         </div>
       </footer>

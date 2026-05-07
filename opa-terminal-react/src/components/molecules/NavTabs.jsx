@@ -2,6 +2,7 @@ import { useRef } from 'react';
 import { NavLink } from "react-router-dom";
 import { twMerge } from "tailwind-merge";
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 export function NavTabs({ tabs }) {
   const scrollContainerRef = useRef(null);
@@ -14,32 +15,38 @@ export function NavTabs({ tabs }) {
   };
 
   return (
-    <div className="relative group flex items-center">
+    <div className="relative group flex items-center bg-surface-100/40 backdrop-blur-2xl rounded-[1.5rem] border border-border shadow-main p-1 overflow-hidden">
       {/* Esquerda */}
       <button 
         onClick={() => scroll('left')}
-        className="absolute left-0 z-10 p-2 m-2 bg-surface/80 text-white rounded-full border border-white/10 opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-0 focus:outline-none hover:bg-glow/20 hover:text-glow backdrop-blur-md shadow-lg"
+        className="z-20 p-2.5 bg-surface-200/90 text-text-main rounded-xl border border-border opacity-0 group-hover:opacity-100 transition-all focus:outline-none hover:bg-primary hover:text-text-inverse shadow-pop"
       >
         <ChevronLeft className="w-4 h-4" />
       </button>
-
+      
       <div 
         ref={scrollContainerRef}
-        className="flex w-full overflow-x-auto flex-nowrap gap-2 p-1.5 bg-surface/30 backdrop-blur-md rounded-2xl border border-white/5 shadow-2xl [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden scroll-smooth"
+        className="flex flex-grow overflow-x-auto flex-nowrap gap-2.5 px-4 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden scroll-smooth"
       >
         {tabs.map((tab) => (
           <NavLink
             key={tab.id}
             to={tab.path}
             className={({ isActive }) => twMerge(
-              "shrink-0 min-w-fit flex-1 flex items-center justify-center gap-2 px-5 md:px-6 py-3.5 text-[10px] md:text-xs font-black uppercase tracking-[0.2em] transition-all duration-300 rounded-xl text-neutral-400 hover:bg-white/5 hover:text-white",
-              isActive && "bg-glow/20 text-glow shadow-glow box-glow translate-y-[-2px] border border-glow/30"
+              "shrink-0 min-w-fit flex-1 flex items-center justify-center gap-3 px-6 md:px-8 py-4 text-[10px] md:text-xs font-black uppercase tracking-[0.25em] transition-all duration-500 rounded-[1rem] relative overflow-hidden group/nav",
+              isActive ? "text-primary bg-primary/10 shadow-pop translate-y-[-1px]" : "text-text-muted hover:bg-surface-200 hover:text-text-main"
             )}
           >
             {({ isActive }) => (
               <>
-                <tab.icon className={twMerge("w-4 h-4 transition-colors", isActive ? "text-glow" : "text-neutral-500")} />
-                <span className="inline">{tab.label}</span>
+                <tab.icon className={twMerge("w-4 h-4 transition-all duration-500", isActive ? "text-primary scale-110" : "text-text-muted/40 group-hover/nav:text-text-main")} />
+                <span className="relative z-10">{tab.label}</span>
+                {isActive && (
+                  <motion.div 
+                    layoutId="nav-active"
+                    className="absolute inset-0 bg-primary/5 border border-primary/20 rounded-[1rem]"
+                  />
+                )}
               </>
             )}
           </NavLink>
@@ -49,7 +56,7 @@ export function NavTabs({ tabs }) {
       {/* Direita */}
       <button 
         onClick={() => scroll('right')}
-        className="absolute right-0 z-10 p-2 m-2 bg-surface/80 text-white rounded-full border border-white/10 opacity-0 group-hover:opacity-100 transition-opacity focus:outline-none hover:bg-glow/20 hover:text-glow backdrop-blur-md shadow-lg"
+        className="z-20 p-2.5 bg-surface-200/90 text-text-main rounded-xl border border-border opacity-0 group-hover:opacity-100 transition-all focus:outline-none hover:bg-primary hover:text-text-inverse shadow-pop"
       >
         <ChevronRight className="w-4 h-4" />
       </button>

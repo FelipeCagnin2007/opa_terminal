@@ -229,13 +229,19 @@ export function resolveTurn(attackerPoke, defenderPoke, move) {
   }
 
   let effectiveness = 1;
+  
+  let power = move.power;
+  if (!power && move.damageClass !== 'status') {
+    power = 50; // Default fallback for moves missing data
+  }
 
-  if (move.power && move.power > 0) {
+  if (power && power > 0) {
     // Critical hit (6.25% chance)
     const critical = Math.random() < 0.0625;
     if (critical) logs.push('CRITICAL_HIT!');
 
-    const result = calculateDamage({ attacker, move, defender, critical });
+    const effectiveMove = { ...move, power };
+    const result = calculateDamage({ attacker, move: effectiveMove, defender, critical });
     effectiveness = result.typeMultiplier;
 
     const effLabel = getEffectivenessLabel(effectiveness);
@@ -260,6 +266,8 @@ export function resolveTurn(attackerPoke, defenderPoke, move) {
   } else if (move.damageClass === 'status') {
     // Status moves (simplified: just log)
     logs.push(`${attacker.name} used a STATUS_PROTOCOL!`);
+  } else {
+    logs.push(`${attacker.name}'s attack had no effect!`);
   }
 
   // End-of-turn status damage on attacker

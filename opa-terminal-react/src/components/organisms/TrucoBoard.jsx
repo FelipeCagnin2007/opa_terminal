@@ -9,17 +9,17 @@ import { usePet } from '../../context/PetContext';
 import { p2p } from '../../utils/p2pService';
 
 const SUIT_ICONS = {
-  'Ouros': { symbol: '♦', color: '#ef4444' }, // Red
-  'Espadas': { symbol: '♠', color: '#000000' }, // Black
-  'Copas': { symbol: '♥', color: '#ef4444' }, // Red
-  'Paus': { symbol: '♣', color: '#000000' } // Black
+  'Ouros': { symbol: '♦', color: 'var(--color-danger)' },
+  'Espadas': { symbol: '♠', color: 'var(--color-text-main)' },
+  'Copas': { symbol: '♥', color: 'var(--color-danger)' },
+  'Paus': { symbol: '♣', color: 'var(--color-text-main)' }
 };
 
 const Card = ({ card, size = 'md', isManilha = false, className = '', showBadge = true }) => {
   const suitInfo = SUIT_ICONS[card.suit] || { symbol: '?', color: '#ffffff' };
   
   return (
-      <div className={`relative bg-white rounded-xl flex flex-col items-center justify-center font-black shadow-2xl border-2 overflow-hidden transform transition-all hover:scale-105 ${size === 'lg' ? 'w-20 h-32 md:w-24 md:h-36' : size === 'sm' ? 'w-12 h-18 md:w-16 md:h-24' : 'w-16 h-28 md:w-20 md:h-32'} ${isManilha ? 'border-[#ffd700] shadow-[0_0_20px_rgba(255,215,0,0.8)]' : 'border-black/5'} ${className}`}>
+      <div className={`relative bg-white rounded-xl flex flex-col items-center justify-center font-black shadow-pop border-2 overflow-hidden transform transition-all hover:scale-105 ${size === 'lg' ? 'w-20 h-32 md:w-24 md:h-36' : size === 'sm' ? 'w-12 h-18 md:w-16 md:h-24' : 'w-16 h-28 md:w-20 md:h-32'} ${isManilha ? 'border-yellow-400 shadow-[0_0_20px_rgba(250,204,21,0.8)]' : 'border-black/5'} ${className}`}>
           {isManilha && showBadge && (
               <div className="absolute top-0 inset-x-0 bg-[#ffd700] text-black text-[7px] md:text-[9px] font-black text-center py-0.5 tracking-widest uppercase z-10 animate-pulse">
                   MANILHA
@@ -728,10 +728,10 @@ export function TrucoBoard({ roomId, profile, onExit }) {
   // Guard against initial null crash
   if (!gameState || !profile || myPosition === null) {
       return (
-          <div className="h-full flex items-center justify-center bg-black/80 backdrop-blur-md">
+          <div className="h-full flex items-center justify-center bg-bg/80 backdrop-blur-md">
               <div className="flex flex-col items-center gap-4">
-                  <div className="w-12 h-12 border-4 border-glow/20 border-t-glow rounded-full animate-spin" />
-                  <span className="text-xs text-glow uppercase tracking-[0.2em] font-black animate-pulse">CARREGANDO APOSTAS...</span>
+                  <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+                  <span className="text-xs text-primary uppercase tracking-[0.2em] font-black animate-pulse">CARREGANDO APOSTAS...</span>
               </div>
           </div>
       );
@@ -741,10 +741,10 @@ export function TrucoBoard({ roomId, profile, onExit }) {
   const botNames = ['BOT ALFA', 'BOT BETA', 'BOT GAMA', 'BOT DELTA'];
   
   return (
-    <div className="h-full flex flex-col font-terminal relative overflow-hidden bg-[#07130c]">
+    <div className="h-full flex flex-col font-terminal relative overflow-hidden bg-bg">
       {/* Dynamic Background Effects */}
       <div className="absolute inset-0 z-0 opacity-30 pointer-events-none">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,_#113a22_0%,_transparent_70%)]" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,_var(--color-primary-dark),_transparent_70%)]" />
           <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/felt.png')] opacity-40 mix-blend-overlay" />
           <div className="absolute top-0 left-0 w-full h-full bg-[conic-gradient(from_0deg_at_50%_50%,_transparent_0deg,_rgba(0,0,0,0.4)_180deg,_transparent_360deg)] animate-[spin_20s_linear_infinite]" />
       </div>
@@ -753,20 +753,20 @@ export function TrucoBoard({ roomId, profile, onExit }) {
       {gameState.vira && (
           <div className="absolute top-4 right-4 md:top-6 md:right-6 z-[70] flex flex-row-reverse items-start gap-4 scale-[0.75] md:scale-100 origin-top-right">
               {/* Scoreboard Integrated */}
-               <div className="bg-black/80 border-2 border-white/10 p-1 rounded-2xl backdrop-blur-xl shadow-2xl flex items-center gap-1 h-fit">
-                  <div className="px-4 py-2 bg-glow/10 border border-glow/20 rounded-xl flex flex-col items-center min-w-[65px]">
-                      <span className="text-[7px] text-glow/60 font-black uppercase tracking-tighter">NÓS</span>
-                      <span className="text-xl font-black text-white">{gameState.score?.ours || 0}</span>
+               <div className="bg-bg/80 border-2 border-border p-1 rounded-2xl backdrop-blur-xl shadow-main flex items-center gap-1 h-fit">
+                  <div className="px-4 py-2 bg-primary/10 border border-primary/20 rounded-xl flex flex-col items-center min-w-[65px]">
+                      <span className="text-[7px] text-primary/60 font-black uppercase tracking-tighter">NÓS</span>
+                      <span className="text-xl font-black text-text-main">{gameState.score?.ours || 0}</span>
                   </div>
-                  <div className="px-4 py-2 bg-white/5 border border-white/10 rounded-xl flex flex-col items-center min-w-[65px]">
-                      <span className="text-[7px] text-white/40 font-black uppercase tracking-tighter">ELES</span>
-                      <span className="text-xl font-black text-white">{gameState.score?.theirs || 0}</span>
+                  <div className="px-4 py-2 bg-surface-200 border border-border rounded-xl flex flex-col items-center min-w-[65px]">
+                      <span className="text-[7px] text-text-muted font-black uppercase tracking-tighter">ELES</span>
+                      <span className="text-xl font-black text-text-main">{gameState.score?.theirs || 0}</span>
                   </div>
                </div>
 
               <div className="flex flex-col items-center gap-1.5">
-                <div className="bg-black/60 border border-white/20 px-2.5 py-1 rounded-full backdrop-blur-md shadow-xl">
-                    <span className="text-white/80 text-[7px] md:text-[8px] font-black uppercase tracking-[0.2em]">A VIRA</span>
+                <div className="bg-bg/60 border border-border px-2.5 py-1 rounded-full backdrop-blur-md shadow-main">
+                    <span className="text-text-main/80 text-[7px] md:text-[8px] font-black uppercase tracking-[0.2em]">A VIRA</span>
                 </div>
                 <Card card={gameState.vira} size="sm" showBadge={false} />
               </div>
@@ -780,11 +780,11 @@ export function TrucoBoard({ roomId, profile, onExit }) {
 
           {/* HUD - Mãos Ganhas (Bottom Right) */}
           <div className="absolute bottom-24 right-4 md:bottom-8 md:right-8 z-[60]">
-               <div className="flex gap-2 p-2 bg-black/40 rounded-xl backdrop-blur-md border border-white/5">
+               <div className="flex gap-2 p-2 bg-surface-100/40 rounded-xl backdrop-blur-md border border-border">
                     {[0, 1, 2].map(i => {
                         const winner = gameState.roundPoints?.[i];
                         return (
-                            <div key={i} className={`w-2 h-2 md:w-3 md:h-3 rounded-full transition-all duration-500 ${winner === 1 ? 'bg-glow shadow-[0_0_10px_#10b981]' : winner === 2 ? 'bg-cyber-blue shadow-[0_0_10px_#38bdf8]' : 'bg-white/10'}`} />
+                            <div key={i} className={`w-2 h-2 md:w-3 md:h-3 rounded-full transition-all duration-500 ${winner === 1 ? 'bg-primary shadow-pop' : winner === 2 ? 'bg-accent shadow-pop-accent' : 'bg-surface-300'}`} />
                         );
                     })}
                </div>
@@ -792,9 +792,9 @@ export function TrucoBoard({ roomId, profile, onExit }) {
 
           {/* HUD - Hand Points (Center Top) */}
           <div className="absolute top-6 left-1/2 -translate-x-1/2 z-[60]">
-               <div className="bg-gradient-to-b from-black/80 to-black/40 border border-white/10 px-6 py-2 rounded-2xl flex items-center gap-3 backdrop-blur-xl shadow-2xl">
-                 <div className="w-1.5 h-1.5 bg-glow rounded-full animate-pulse shadow-[0_0_8px_#10b981]" />
-                 <span className="text-[10px] font-black text-white/90 uppercase tracking-[0.25em]">{gameState.handPoints || 1} PONTOS</span>
+               <div className="bg-bg/80 border border-border px-6 py-2 rounded-2xl flex items-center gap-3 backdrop-blur-xl shadow-main">
+                 <div className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse shadow-pop" />
+                 <span className="text-[10px] font-black text-text-main/90 uppercase tracking-[0.25em]">{gameState.handPoints || 1} PONTOS</span>
               </div>
           </div>
         
@@ -857,23 +857,23 @@ export function TrucoBoard({ roomId, profile, onExit }) {
             return (
                 <div key={pos} className={`absolute ${posStyles[relativePos]} flex flex-col items-center gap-3 z-40 transition-all duration-500 translate-y-0`}>
                     <div className="relative">
-                        <div className={`w-14 h-14 md:w-20 md:h-20 rounded-full flex items-center justify-center p-1 transition-all duration-300 ${activeTurn ? 'bg-gradient-to-br from-glow to-white shadow-[0_0_40px_rgba(16,185,129,0.6)] scale-110' : 'bg-black/60 border border-white/10'}`}>
-                             <div className="w-full h-full rounded-full bg-neutral-900 flex items-center justify-center overflow-hidden border border-white/5">
-                                {isCPU ? <Cpu className={`w-6 h-6 md:w-8 md:h-8 ${activeTurn ? 'text-glow animate-pulse' : 'text-white/30'}`} /> : <User className={`w-6 h-6 md:w-8 md:h-8 ${activeTurn ? 'text-glow animate-pulse' : 'text-white/30'}`} />}
+                        <div className={`w-14 h-14 md:w-20 md:h-20 rounded-full flex items-center justify-center p-1 transition-all duration-300 ${activeTurn ? 'bg-gradient-to-br from-primary to-white shadow-pop scale-110' : 'bg-surface-300 border border-border'}`}>
+                             <div className="w-full h-full rounded-full bg-surface-300 flex items-center justify-center overflow-hidden border border-border">
+                                {isCPU ? <Cpu className={`w-6 h-6 md:w-8 md:h-8 ${activeTurn ? 'text-primary animate-pulse' : 'text-text-muted/30'}`} /> : <User className={`w-6 h-6 md:w-8 md:h-8 ${activeTurn ? 'text-primary animate-pulse' : 'text-text-muted/30'}`} />}
                              </div>
                         </div>
                         {activeTurn && (
-                            <div className="absolute -inset-2 border-2 border-glow/50 rounded-full animate-[ping_2s_cubic-bezier(0,0,0.2,1)_infinite] pointer-events-none" />
+                            <div className="absolute -inset-2 border-2 border-primary/50 rounded-full animate-[ping_2s_cubic-bezier(0,0,0.2,1)_infinite] pointer-events-none" />
                         )}
                     </div>
-                    <div className={`flex flex-col items-center px-4 py-1.5 rounded-2xl backdrop-blur-xl border ${activeTurn ? 'bg-glow/10 border-glow/40 shadow-[0_0_20px_rgba(16,185,129,0.2)]' : 'bg-black/60 border-white/10'}`}>
-                        <span className={`text-[8px] md:text-[10px] font-black tracking-widest uppercase ${activeTurn ? 'text-glow' : 'text-white/40'}`}>
+                    <div className={`flex flex-col items-center px-4 py-1.5 rounded-2xl backdrop-blur-xl border ${activeTurn ? 'bg-primary/10 border-primary/40 shadow-pop' : 'bg-surface-300 border-border'}`}>
+                        <span className={`text-[8px] md:text-[10px] font-black tracking-widest uppercase ${activeTurn ? 'text-primary' : 'text-text-muted/40'}`}>
                             {isUser ? 'ME' : (isCPU ? botNames[pos] : 'GUEST')}
                         </span>
                         {handCount > 0 && (
                             <div className="flex gap-1 mt-1">
                                 {[...Array(handCount)].map((_, i) => (
-                                    <div key={i} className={`w-2 h-3 md:w-3 md:h-4 rounded-[1px] ${isUser ? 'bg-glow shadow-[0_0_10px_#10b981]' : 'bg-white/20'}`} />
+                                    <div key={i} className={`w-2 h-3 md:w-3 md:h-4 rounded-[1px] ${isUser ? 'bg-primary shadow-pop' : 'bg-text-muted/20'}`} />
                                 ))}
                             </div>
                         )}
@@ -890,7 +890,7 @@ export function TrucoBoard({ roomId, profile, onExit }) {
         <div className="absolute top-0 -translate-y-1/2 left-1/2 -translate-x-1/2 z-[200]">
             <Button 
                 onClick={callTruco} 
-                className="bg-gradient-to-b from-glow to-[#0d9488] text-black font-black px-10 md:px-14 py-4 rounded-full border-b-4 border-black/40 hover:-translate-y-1 active:translate-y-0 active:border-b-0 transition-all text-xs md:text-sm tracking-[0.3em] uppercase shadow-[0_20px_40px_rgba(0,0,0,0.4),_0_0_30px_rgba(16,185,129,0.4)] disabled:opacity-30 disabled:grayscale disabled:shadow-none"
+                className="bg-gradient-to-b from-primary to-primary-dark text-text-inverse font-black px-10 md:px-14 py-4 rounded-full border-b-4 border-black/40 hover:-translate-y-1 active:translate-y-0 active:border-b-0 transition-all text-xs md:text-sm tracking-[0.3em] uppercase shadow-pop disabled:opacity-30 disabled:grayscale disabled:shadow-none"
                 disabled={(() => {
                     if (!isMyTurn) return true;
                     if (gameState.trucoChallenge?.status === 'pending') return true;
@@ -929,7 +929,7 @@ export function TrucoBoard({ roomId, profile, onExit }) {
                             key={card.value + card.suit}
                             className={`group relative outline-none transition-all duration-300 ${!isMyTurn ? 'opacity-50 grayscale scale-95' : 'hover:z-50 cursor-pointer drop-shadow-[0_10px_30px_rgba(0,0,0,0.5)]'}`}
                         >
-                            <Card card={card} size="lg" isManilha={isHandManilha} className={`${isMyTurn ? 'border-glow/50 ring-2 ring-white/5' : 'border-white/5'}`} />
+                            <Card card={card} size="lg" isManilha={isHandManilha} className={`${isMyTurn ? 'border-primary/50 ring-2 ring-white/5' : 'border-white/5'}`} />
                             {isMyTurn && (
                                 <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 bg-black border border-white/20 text-white text-[8px] font-black px-3 py-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap uppercase tracking-widest pointer-events-none z-10 shadow-lg">
                                     JOGAR CARTA
@@ -942,8 +942,8 @@ export function TrucoBoard({ roomId, profile, onExit }) {
         </div>
 
         {myPosition === null || !gameState.hands || !gameState.hands[myPosition] || gameState.hands[myPosition].length === 0 ? (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-black/80 backdrop-blur-md z-10">
-                <span className="text-xs text-glow font-black uppercase tracking-[0.4em] animate-pulse">Aguardando Conexões e Baralho...</span>
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-bg/80 backdrop-blur-md z-10">
+                <span className="text-xs text-primary font-black uppercase tracking-[0.4em] animate-pulse">Aguardando Conexões e Baralho...</span>
                 <Button variant="danger" onClick={onExit} className="px-6 py-2 text-[10px] tracking-widest rounded-xl">SAIR DA MESA</Button>
             </div>
         ) : null}
@@ -956,7 +956,7 @@ export function TrucoBoard({ roomId, profile, onExit }) {
             animate={{ opacity: 1, y: 0 }}
             className="absolute top-28 left-1/2 -translate-x-1/2 z-[110] bg-surface-brighter text-white px-6 py-2 rounded-full font-black text-[10px] tracking-[0.2em] shadow-lg border border-glow/30 uppercase backdrop-blur-md"
           >
-            <span className="text-glow animate-pulse mr-2">●</span> SUA_VEZ
+            <span className="text-primary animate-pulse mr-2">●</span> SUA_VEZ
           </motion.div>
       )}
 
@@ -971,8 +971,8 @@ export function TrucoBoard({ roomId, profile, onExit }) {
             >
                 <div className="bg-surface/90 border border-white/10 backdrop-blur-xl px-8 py-5 rounded-3xl shadow-2xl text-center flex flex-col items-center">
                     <span className="text-[9px] text-neutral-400 font-black block mb-2 uppercase tracking-widest">RESULTADO_RODADA</span>
-                    <span className="text-2xl md:text-3xl font-black text-white uppercase tracking-widest">
-                        {gameState.lastWinner === 'draw' ? <span className="text-neutral-400">EMPATE (CANGOU)</span> : gameState.lastWinner === 'ours' ? <span className="text-glow">VITÓRIA</span> : <span className="text-danger">DERROTA</span>}
+                    <span className="text-2xl md:text-3xl font-black text-text-main uppercase tracking-widest">
+                        {gameState.lastWinner === 'draw' ? <span className="text-text-muted">EMPATE (CANGOU)</span> : gameState.lastWinner === 'ours' ? <span className="text-primary">VITÓRIA</span> : <span className="text-danger">DERROTA</span>}
                     </span>
                 </div>
             </motion.div>
@@ -992,9 +992,9 @@ export function TrucoBoard({ roomId, profile, onExit }) {
                         exit={{ opacity: 0, scale: 0.9 }}
                         className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
                     >
-                        <div className="bg-danger/20 border-2 border-danger/40 p-8 rounded-3xl max-w-sm w-full text-center shadow-2xl backdrop-blur-xl">
-                            <h3 className="text-3xl font-black mb-3 text-white tracking-widest uppercase italic">CORREU!</h3>
-                            <p className="text-white/60 text-xs uppercase tracking-widest font-black">
+                        <div className="bg-danger/20 border-2 border-danger/40 p-8 rounded-3xl max-w-sm w-full text-center shadow-main backdrop-blur-xl">
+                            <h3 className="text-3xl font-black mb-3 text-text-main tracking-widest uppercase italic">CORREU!</h3>
+                            <p className="text-text-muted text-xs uppercase tracking-widest font-black">
                                 DESAFIO REJEITADO.
                                 <br/><span className="text-danger mt-2 inline-block">EQUIPE DESISTIU DA MÃO</span>
                             </p>
@@ -1019,13 +1019,13 @@ export function TrucoBoard({ roomId, profile, onExit }) {
                         exit={{ opacity: 0, scale: 0.9 }}
                         className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
                     >
-                        <div className="bg-neutral-900 border border-white/10 p-8 rounded-3xl max-w-sm w-full text-center shadow-2xl relative overflow-hidden">
-                            <h3 className="text-3xl font-black mb-3 text-white tracking-widest flex items-center justify-center gap-2">
-                                <Zap className="fill-glow text-glow" /> TRUCO!
+                        <div className="bg-surface-300 border border-border p-8 rounded-3xl max-w-sm w-full text-center shadow-main relative overflow-hidden">
+                            <h3 className="text-3xl font-black mb-3 text-text-main tracking-widest flex items-center justify-center gap-2">
+                                <Zap className="fill-primary text-primary" /> TRUCO!
                             </h3>
-                            <p className="text-neutral-400 text-sm mb-6 leading-relaxed">
+                            <p className="text-text-muted text-sm mb-6 leading-relaxed">
                                 VOCÊ DESAFIOU O OPONENTE.
-                                <br/><span className="text-white bg-white/5 border border-white/10 px-3 py-1 rounded-full mt-4 inline-block uppercase text-[10px]">Aguardando resposta...</span>
+                                <br/><span className="text-text-main bg-surface-200 border border-border px-3 py-1 rounded-full mt-4 inline-block uppercase text-[10px]">Aguardando resposta...</span>
                             </p>
                         </div>
                     </motion.div>
@@ -1039,24 +1039,24 @@ export function TrucoBoard({ roomId, profile, onExit }) {
                     exit={{ opacity: 0, scale: 0.9 }}
                     className="absolute inset-0 z-[200] flex items-center justify-center p-6 bg-bg/90 backdrop-blur-xl"
                 >
-                    <div className="bg-surface-brighter border border-white/10 p-8 md:p-12 rounded-[2.5rem] max-w-sm w-full text-center shadow-2xl">
-                        <div className="w-20 h-20 bg-glow/10 rounded-full flex items-center justify-center mx-auto mb-6">
-                            <Zap className="w-10 h-10 text-glow animate-pulse" />
+                    <div className="bg-surface-100 border border-border p-8 md:p-12 rounded-[2.5rem] max-w-sm w-full text-center shadow-main">
+                        <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
+                            <Zap className="w-10 h-10 text-primary animate-pulse" />
                         </div>
-                        <h3 className="text-3xl font-black mb-3 text-white tracking-widest">TRUCO!</h3>
-                        <p className="text-[10px] text-neutral-400 uppercase tracking-widest mb-8 leading-relaxed">
+                        <h3 className="text-3xl font-black mb-3 text-text-main tracking-widest">TRUCO!</h3>
+                        <p className="text-[10px] text-text-muted uppercase tracking-widest mb-8 leading-relaxed">
                             UM OPONENTE DESAFIOU O SISTEMA.
-                            <br/><span className="text-white bg-white/5 border border-white/10 px-3 py-1 rounded-full mt-4 inline-block">VALOR: <span className="text-glow">{gameState.trucoChallenge.value} PONTOS</span></span>
+                            <br/><span className="text-text-main bg-surface-200 border border-border px-3 py-1 rounded-full mt-4 inline-block">VALOR: <span className="text-primary">{gameState.trucoChallenge.value} PONTOS</span></span>
                         </p>
 
                         <div className="flex flex-col gap-4">
-                            <Button variant="glow" onClick={() => handleTrucoResponse('ACCEPT')} className="w-full py-4 text-[10px] tracking-widest rounded-xl">ACEITAR DESAFIO</Button>
+                            <Button variant="primary" onClick={() => handleTrucoResponse('ACCEPT')} className="w-full py-4 text-[10px] tracking-widest rounded-xl">ACEITAR DESAFIO</Button>
                             {gameState.handPoints < 12 && (
-                                <Button variant="cyber" onClick={() => handleTrucoResponse('RAISE')} className="w-full py-4 text-[10px] tracking-widest rounded-xl bg-cyber-blue/10 border-cyber-blue/20 text-cyber-blue">
+                                <Button variant="accent" onClick={() => handleTrucoResponse('RAISE')} className="w-full py-4 text-[10px] tracking-widest rounded-xl">
                                     PEDIR {gameState.handPoints + 3}!
                                 </Button>
                             )}
-                            <Button variant="danger" onClick={() => handleTrucoResponse('FOLD')} className="w-full py-4 text-[10px] tracking-widest rounded-xl bg-danger/10 border-danger/20 text-danger hover:bg-danger/20">FUGIR (ABORTAR)</Button>
+                            <Button variant="danger" onClick={() => handleTrucoResponse('FOLD')} className="w-full py-4 text-[10px] tracking-widest rounded-xl">FUGIR (ABORTAR)</Button>
                         </div>
                     </div>
                 </motion.div>
@@ -1075,15 +1075,15 @@ export function TrucoBoard({ roomId, profile, onExit }) {
                 <motion.div 
                     initial={{ scale: 0.9, y: 20 }}
                     animate={{ scale: 1, y: 0 }}
-                    className={`max-w-md w-full p-10 rounded-[2.5rem] border text-center shadow-2xl ${gameState.winner === 'ours' ? 'border-glow/30 bg-surface/80' : 'border-danger/30 bg-surface/80'}`}
+                    className={`max-w-md w-full p-10 rounded-[2.5rem] border text-center shadow-main ${gameState.winner === 'ours' ? 'border-primary/30 bg-surface-100/80' : 'border-danger/30 bg-surface-100/80'}`}
                 >
-                    <div className={`w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-8 border ${gameState.winner === 'ours' ? 'bg-glow/5 border-glow/20' : 'bg-danger/5 border-danger/20'}`}>
-                        <Trophy className={`w-10 h-10 ${gameState.winner === 'ours' ? 'text-glow' : 'text-danger/60'}`} />
+                    <div className={`w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-8 border ${gameState.winner === 'ours' ? 'bg-primary/5 border-primary/20' : 'bg-danger/5 border-danger/20'}`}>
+                        <Trophy className={`w-10 h-10 ${gameState.winner === 'ours' ? 'text-primary' : 'text-danger/60'}`} />
                     </div>
-                    <h2 className={`text-4xl md:text-5xl font-black mb-4 tracking-widest ${gameState.winner === 'ours' ? 'text-white' : 'text-danger'}`}>
+                    <h2 className={`text-4xl md:text-5xl font-black mb-4 tracking-widest ${gameState.winner === 'ours' ? 'text-text-main' : 'text-danger'}`}>
                         {gameState.winner === 'ours' ? 'VITÓRIA' : 'DERROTA'}
                     </h2>
-                    <p className="text-[10px] md:text-xs text-neutral-400 uppercase tracking-[0.2em] mb-12 leading-relaxed">
+                    <p className="text-[10px] md:text-xs text-text-muted uppercase tracking-[0.2em] mb-12 leading-relaxed">
                         {gameState.winner === 'ours' 
                             ? 'PROTOCOLO CONCLUÍDO. RECOMPENSAS ADICIONADAS AO CLUSTER.' 
                             : 'FALHA SISTÊMICA. INTEGRIDADE DO CÓDIGO COMPROMETIDA.'

@@ -163,7 +163,7 @@ export function OpaGotchiTab() {
             initial={{ opacity: 0, y: 50, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
-            className="fixed bottom-12 left-1/2 -translate-x-1/2 z-[200] bg-white text-bg px-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.3em] shadow-2xl border border-white/20"
+            className="fixed bottom-12 left-1/2 -translate-x-1/2 z-[200] bg-surface-300 text-text-main px-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.3em] shadow-main border border-border"
           >
             {toast}
           </motion.div>
@@ -176,41 +176,41 @@ export function OpaGotchiTab() {
           <motion.div 
             initial={{ opacity: 0, backdropFilter: 'blur(0px)' }}
             animate={{ opacity: 1, backdropFilter: 'blur(12px)' }}
-            className="absolute inset-x-0 -top-4 bottom-0 z-50 bg-bg/80 flex items-center justify-center rounded-[3rem] border border-white/5 shadow-2xl"
+            className="absolute inset-x-0 -top-4 bottom-0 z-50 bg-bg/80 flex items-center justify-center rounded-[1.5rem] md:rounded-[3rem] border border-border shadow-main p-4 md:p-0"
           >
-            <div className="flex flex-col items-center gap-8 p-12 max-w-sm text-center bg-surface/80 rounded-[2.5rem] border border-white/10 shadow-glow">
-              <div className="w-16 h-16 rounded-2xl bg-glow/10 flex items-center justify-center border border-glow/20">
-                <TerminalIcon className="text-glow w-8 h-8" />
+            <div className="flex flex-col items-center gap-6 md:gap-8 p-8 md:p-12 w-full max-w-sm text-center bg-surface-200/80 rounded-[2rem] md:rounded-[2.5rem] border border-border shadow-pop">
+              <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center border border-primary/20 shadow-pop">
+                <TerminalIcon className="text-primary w-8 h-8" />
               </div>
               <div className="space-y-2">
-                <h3 className="text-xl font-black tracking-widest text-white uppercase">Entity_Registration</h3>
-                <p className="text-[10px] text-white/30 uppercase tracking-[0.2em] font-bold">Allocate unique identification fragment</p>
+                <h3 className="text-xl font-black tracking-widest text-text-main uppercase">REGISTRO_DE_ENTIDADE</h3>
+                <p className="text-[10px] text-text-muted uppercase tracking-[0.2em] font-bold">Alocar fragmento de identificação único</p>
               </div>
               <input 
                 type="text" 
                 value={nameInput}
                 onChange={(e) => setNameInput(e.target.value)}
-                placeholder="ID_SEQUENCE" 
+                placeholder="SEQUENCIA_ID" 
                 maxLength={15}
-                className="w-full text-center text-glow uppercase tracking-[0.5em] h-14 bg-bg/50 border-white/5 rounded-2xl focus:border-glow/30"
+                className="w-full text-center text-primary uppercase tracking-[0.5em] h-14 bg-surface-200/50 border border-border rounded-2xl focus:border-primary/30"
               />
               <button 
                 onClick={confirmName} 
                 disabled={!nameInput.trim()} 
                 className="btn-premium w-full py-4"
               >
-                CONFIRM_REGISTRY
+                CONFIRMAR_REGISTRO
               </button>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-10">
-        <div className="flex flex-col gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-8 md:gap-10 overflow-x-hidden">
+        <div className="flex flex-col gap-6 md:gap-8">
           <PetStats pet={pet} />
           
-          <div className="flex-grow flex flex-col items-center justify-center min-h-[400px] border border-white/5 rounded-[3rem] bg-surface/30 backdrop-blur-md relative overflow-hidden group shadow-2xl">
+          <div className="flex-grow flex flex-col items-center justify-center min-h-[300px] md:min-h-[400px] border border-border rounded-[2rem] md:rounded-[3rem] bg-surface-100/30 backdrop-blur-md relative overflow-hidden group shadow-main">
              <div className="noise-bg absolute inset-0 opacity-5 pointer-events-none" />
              <AnimatePresence>
                {pet.thoughts && (
@@ -218,9 +218,9 @@ export function OpaGotchiTab() {
                    initial={{ opacity: 0, scale: 0.8, y: 10 }}
                    animate={{ opacity: 1, scale: 1, y: 0 }}
                    exit={{ opacity: 0, scale: 0.8 }}
-                   className="absolute top-12 px-8 py-4 bg-white text-bg text-[10px] font-black uppercase tracking-[0.3em] max-w-[80%] rounded-[1.5rem] shadow-2xl z-10"
+                   className="absolute top-12 px-8 py-4 bg-surface-300 text-text-main text-[10px] font-black uppercase tracking-[0.3em] max-w-[80%] rounded-[1.5rem] shadow-main z-10 border border-border"
                  >
-                   <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-white rotate-45" />
+                   <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-surface-300 border-r border-b border-border rotate-45" />
                    {pet.thoughts}
                  </motion.div>
                )}
@@ -231,8 +231,8 @@ export function OpaGotchiTab() {
             </div>
 
             {/* Stage Badge */}
-            <div className="absolute bottom-8 px-4 py-1.5 bg-white/[0.03] border border-white/10 rounded-full text-[8px] font-black uppercase tracking-[0.3em] text-white/30">
-              Evolution_Stage: <span className="text-glow">{pet.stage}</span>
+            <div className="absolute bottom-8 px-4 py-1.5 bg-surface-200 border border-border rounded-full text-[8px] font-black uppercase tracking-[0.3em] text-text-muted">
+              Estágio_Evolutivo: <span className="text-primary">{pet.stage}</span>
             </div>
           </div>
 
@@ -240,43 +240,43 @@ export function OpaGotchiTab() {
         </div>
 
         <div className="flex flex-col gap-6">
-          <div className="bg-surface/40 backdrop-blur-xl border border-white/5 p-8 rounded-[2.5rem] flex flex-col gap-8 shadow-2xl relative overflow-hidden">
+          <div className="bg-surface-100/40 backdrop-blur-xl border border-border p-6 md:p-8 rounded-[1.5rem] md:rounded-[2.5rem] flex flex-col gap-8 shadow-main relative overflow-hidden">
             <div className="noise-bg absolute inset-0 opacity-5 pointer-events-none" />
             <div className="flex flex-col gap-6 relative z-10">
-              <h3 className="text-[10px] text-white/30 font-black uppercase tracking-[0.4em] flex items-center gap-3">
-                <span className="w-1.5 h-1.5 bg-glow rounded-full box-glow" />
-                SYSTEM_LOG_REALTIME
+              <h3 className="text-[10px] text-text-muted font-black uppercase tracking-[0.4em] flex items-center gap-3">
+                <span className="w-1.5 h-1.5 bg-primary rounded-full shadow-pop" />
+                LOG_DO_SISTEMA_REALTIME
               </h3>
-              <div className="flex flex-col gap-4 font-mono text-[11px] text-white/40 h-[200px] lg:h-[350px] overflow-y-auto custom-scrollbar pr-4">
+              <div className="flex flex-col gap-4 font-mono text-[11px] text-text-muted h-[200px] lg:h-[350px] overflow-y-auto custom-scrollbar pr-4">
                 <div className="space-y-1">
-                  <p className="flex justify-between"><span>&gt; ENTITY_ID:</span> <span className="text-white font-bold">{pet.name || "UNREGISTERED"}</span></p>
-                  <p className="flex justify-between"><span>&gt; PULSE_STATE:</span> <span className="text-glow font-bold">{pet.isSleeping ? "HIBERNATION" : "ACTIVE_CYCLES"}</span></p>
-                  <p className="flex justify-between"><span>&gt; TEMPORAL_AGE:</span> <span className="text-white/60">{Math.floor(pet.age / 10)} UNITS</span></p>
-                  <p className="flex justify-between"><span>&gt; CORE_VERSION:</span> <span className="text-white/60">v2.8_NEURAL</span></p>
+                  <p className="flex justify-between"><span>&gt; ID_ENTIDADE:</span> <span className="text-text-main font-bold">{pet.name || "NÃO_REGISTRADO"}</span></p>
+                  <p className="flex justify-between"><span>&gt; ESTADO_PULSO:</span> <span className="text-primary font-bold">{pet.isSleeping ? "HIBERNAÇÃO" : "CICLOS_ATIVOS"}</span></p>
+                  <p className="flex justify-between"><span>&gt; IDADE_TEMPORAL:</span> <span className="text-text-muted/60">{Math.floor(pet.age / 10)} UNIDADES</span></p>
+                  <p className="flex justify-between"><span>&gt; VERSÃO_NÚCLEO:</span> <span className="text-text-muted/60">v2.8_NEURAL</span></p>
                 </div>
-                <div className="h-px bg-white/5 my-2" />
+                <div className="h-px bg-border/20 my-2" />
                 {pet.energy < 30 && (
                   <p className="text-danger font-black animate-flicker">
                     &gt;&gt;&gt; WARNING: CRITICAL_ENERGY_DEPLEATED
                   </p>
                 )}
                 <p className="text-[9px] leading-relaxed italic opacity-40">
-                  Ready for neural input. Maintain optimal stability for stage advancement...
+                  Pronto para entrada neural. Mantenha estabilidade ideal para avanço de estágio...
                 </p>
               </div>
             </div>
 
-            <div className="pt-6 border-t border-white/5 flex flex-col gap-5 relative z-10">
-              <div className="flex justify-between items-center text-[9px] uppercase tracking-[0.3em] text-white/20 font-black">
-                <span>Next_Credit_Cycle:</span>
-                <span className={rechargeTime ? "text-white/40" : "text-glow"}>{rechargeTime || "READY_FOR_COLLECTION"}</span>
+            <div className="pt-6 border-t border-border flex flex-col gap-5 relative z-10">
+              <div className="flex justify-between items-center text-[9px] uppercase tracking-[0.3em] text-text-muted font-black">
+                <span>Próximo_Ciclo_Crédito:</span>
+                <span className={rechargeTime ? "text-text-muted/40" : "text-primary"}>{rechargeTime || "PRONTO_PARA_COLETA"}</span>
               </div>
               <button 
                 onClick={handleClaim} 
                 disabled={!!rechargeTime}
                 className="btn-premium w-full py-5 text-[11px]"
               >
-                {rechargeTime ? 'RECHARGING_BUFFER...' : 'COLLECT_OPACOINS'}
+                {rechargeTime ? 'RECARREGANDO_BUFFER...' : 'COLETAR_OPACOINS'}
               </button>
             </div>
           </div>
