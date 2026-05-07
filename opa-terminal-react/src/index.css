@@ -2,31 +2,34 @@
 @config "../tailwind.config.js";
 
 :root {
-  /* Core Colors - Dark Mode (Default) */
-  --bg: #040405;
-  --primary: #68a8a8;
-  --primary-hover: #7db8b8;
-  --primary-active: #5a9696;
-  --primary-foreground: #040405;
+  /* Premium Dark Dashboard Palette */
+  --bg: #121212;
+  --primary: #10b981;
+  --primary-hover: #059669;
+  --primary-active: #047857;
+  --primary-foreground: #121212;
   
   --secondary: #ffffff;
-  --accent: #bcdadc;
+  --accent: #38bdf8;
+  --pink: #d946ef;
   
   --text-main: #f8f9fa;
   --text-muted: rgba(248, 249, 250, 0.6);
-  --text-inverse: #040405;
+  --text-inverse: #121212;
 
-  --surface-100: rgba(188, 218, 220, 0.05);
-  --surface-200: rgba(188, 218, 220, 0.12);
-  --surface-300: rgba(188, 218, 220, 0.2);
+  --surface-100: #1e1e1e;
+  --surface-200: #252525;
+  --surface-300: #2d2d2d;
   
   --border: rgba(248, 249, 250, 0.1);
   --border-hover: rgba(248, 249, 250, 0.2);
   
-  --danger: #ff4d4d;
+  --danger: #ef4444;
+  --warning: #f59e0b;
+  --success: #10b981;
   
   --shadow-main: 0 8px 32px rgba(0, 0, 0, 0.4);
-  --shadow-pop: 0 0 20px rgba(104, 168, 168, 0.15);
+  --shadow-pop: 0 0 20px rgba(16, 185, 129, 0.15);
 }
 
 body.light {

@@ -31,9 +31,13 @@ export default {
           hover: 'var(--border-hover)',
         },
         danger: 'var(--danger)',
+        warning: 'var(--warning)',
+        success: 'var(--success)',
+        pink: 'var(--pink)',
         // Aliases for legacy support
         glow: 'var(--primary)',
         'cyber-blue': 'var(--accent)',
+        'cyber-pink': 'var(--pink)',
         // Pokemon Specific (Retro aesthetic)
         pokemon: {
           dark: '#404040',
