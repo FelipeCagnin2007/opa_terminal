@@ -15,8 +15,8 @@ function StatBar({ label, value, max = 255, color }) {
   const pct = Math.round((value / max) * 100);
   return (
     <div className="flex items-center gap-3">
-      <span className="text-[8px] text-white/40 font-black uppercase tracking-[0.2em] w-14 shrink-0">{label}</span>
-      <div className="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden">
+      <span className="text-[8px] text-text-muted font-black uppercase tracking-[0.2em] w-14 shrink-0">{label}</span>
+      <div className="flex-1 h-1.5 bg-border rounded-full overflow-hidden">
         <motion.div
           initial={{ width: 0 }}
           animate={{ width: `${pct}%` }}
@@ -25,7 +25,7 @@ function StatBar({ label, value, max = 255, color }) {
           style={{ background: color }}
         />
       </div>
-      <span className="text-[9px] font-black text-white/60 w-8 text-right">{value}</span>
+      <span className="text-[9px] font-black text-text-main/60 w-8 text-right">{value}</span>
     </div>
   );
 }
@@ -81,7 +81,7 @@ export function PokemonDetail({ pokemon, onAddToTeam, onClose, inTeam }) {
 
   if (!detail) {
     return (
-      <div className="flex items-center justify-center h-64 text-white/30 text-[10px] font-black tracking-[0.3em] uppercase animate-pulse">
+      <div className="flex items-center justify-center h-64 text-text-muted text-[10px] font-black tracking-[0.3em] uppercase animate-pulse">
         LOADING_DATA...
       </div>
     );
@@ -130,7 +130,7 @@ export function PokemonDetail({ pokemon, onAddToTeam, onClose, inTeam }) {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="relative bg-surface/80 backdrop-blur-xl border rounded-3xl overflow-hidden"
+      className="relative bg-surface-100 backdrop-blur-xl border border-border rounded-3xl overflow-hidden"
       style={{ borderColor: `${accentColor}30` }}
     >
       {/* BG glow */}
@@ -142,7 +142,7 @@ export function PokemonDetail({ pokemon, onAddToTeam, onClose, inTeam }) {
       {/* Close */}
       <button
         onClick={onClose}
-        className="absolute top-4 right-4 z-10 p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white/40 hover:text-white transition-all"
+        className="absolute top-4 right-4 z-10 p-2 rounded-xl bg-surface-200 hover:bg-surface-300 text-text-muted hover:text-text-main transition-all"
       >
         <X className="w-4 h-4" />
       </button>
@@ -153,7 +153,7 @@ export function PokemonDetail({ pokemon, onAddToTeam, onClose, inTeam }) {
           className="p-8 flex flex-col items-center gap-4 relative"
           style={{ background: `linear-gradient(180deg, ${accentColor}10 0%, transparent 100%)` }}
         >
-          <span className="text-[9px] font-black tracking-[0.3em] text-white/30">
+          <span className="text-[9px] font-black tracking-[0.3em] text-text-muted">
             #{String(detail.id).padStart(3, '0')}
           </span>
           <img
@@ -162,7 +162,7 @@ export function PokemonDetail({ pokemon, onAddToTeam, onClose, inTeam }) {
             className="w-32 h-32 object-contain drop-shadow-2xl"
             style={{ filter: `drop-shadow(0 0 20px ${accentColor}60)` }}
           />
-          <h3 className="text-white font-black text-lg uppercase tracking-[0.2em]">
+          <h3 className="text-text-main font-black text-lg uppercase tracking-[0.2em]">
             {capitalize(detail.name)}
           </h3>
           <div className="flex gap-2">
@@ -177,14 +177,14 @@ export function PokemonDetail({ pokemon, onAddToTeam, onClose, inTeam }) {
             ))}
           </div>
           {detail.flavorText && (
-            <p className="text-[9px] text-white/40 text-center leading-relaxed font-mono italic px-2">
+            <p className="text-[9px] text-text-muted/60 text-center leading-relaxed font-mono italic px-2">
               "{detail.flavorText.slice(0, 120)}..."
             </p>
           )}
 
           {/* Abilities */}
           <div className="w-full">
-            <span className="text-[8px] font-black uppercase tracking-[0.3em] text-white/30 block mb-2">ABILITY_SLOT</span>
+            <span className="text-[8px] font-black uppercase tracking-[0.3em] text-text-muted block mb-2">ABILITY_SLOT</span>
             <div className="flex flex-col gap-1.5">
               {abilities.map((a) => (
                 <button
@@ -192,8 +192,8 @@ export function PokemonDetail({ pokemon, onAddToTeam, onClose, inTeam }) {
                   onClick={() => setSelectedAbility({ name: a.ability.name, shortEffect: '' })}
                   className="w-full text-left px-3 py-2 rounded-xl text-[9px] font-black uppercase tracking-[0.15em] border transition-all"
                   style={{
-                    borderColor: selectedAbility?.name === a.ability.name ? accentColor : 'rgba(255,255,255,0.08)',
-                    color: selectedAbility?.name === a.ability.name ? accentColor : 'rgba(255,255,255,0.4)',
+                    borderColor: selectedAbility?.name === a.ability.name ? accentColor : 'var(--color-border)',
+                    color: selectedAbility?.name === a.ability.name ? accentColor : 'var(--color-text-muted)',
                     background: selectedAbility?.name === a.ability.name ? `${accentColor}15` : 'transparent',
                   }}
                 >
@@ -209,9 +209,9 @@ export function PokemonDetail({ pokemon, onAddToTeam, onClose, inTeam }) {
             disabled={inTeam}
             className="w-full py-3 rounded-xl font-black text-[10px] uppercase tracking-[0.3em] transition-all flex items-center justify-center gap-2"
             style={{
-              background: inTeam ? 'rgba(255,255,255,0.05)' : `${accentColor}20`,
-              border: `1px solid ${inTeam ? 'rgba(255,255,255,0.08)' : accentColor + '60'}`,
-              color: inTeam ? 'rgba(255,255,255,0.3)' : accentColor,
+              background: inTeam ? 'var(--color-surface-200)' : `${accentColor}20`,
+              border: `1px solid ${inTeam ? 'var(--color-border)' : accentColor + '60'}`,
+              color: inTeam ? 'var(--color-text-muted)' : accentColor,
             }}
           >
             <Plus className="w-4 h-4" />
@@ -220,11 +220,11 @@ export function PokemonDetail({ pokemon, onAddToTeam, onClose, inTeam }) {
         </div>
 
         {/* Right: Stats + Moves */}
-        <div className="p-8 flex flex-col gap-6 border-l border-white/5 overflow-y-auto max-h-[600px]">
+        <div className="p-8 flex flex-col gap-6 border-l border-border overflow-y-auto max-h-[600px]">
           {/* Stats */}
           <div>
-            <span className="text-[9px] font-black uppercase tracking-[0.4em] text-white/30 block mb-4">
-              BASE_STATS
+            <span className="text-[9px] font-black uppercase tracking-[0.4em] text-text-muted block mb-4">
+              STATUS_BASE
             </span>
             <div className="flex flex-col gap-3">
               {stats.map((s) => {
@@ -240,10 +240,10 @@ export function PokemonDetail({ pokemon, onAddToTeam, onClose, inTeam }) {
           <div>
             <button
               onClick={() => setShowMoves(!showMoves)}
-              className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.4em] text-white/30 hover:text-white/60 transition-colors mb-3"
+              className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.4em] text-text-muted hover:text-text-main transition-colors mb-3"
             >
               <Zap className="w-3.5 h-3.5" />
-              MOVE_SELECTION ({selectedMoves.length}/4)
+              SELEÇÃO_DE_GOLPES ({selectedMoves.length}/4)
               <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showMoves ? 'rotate-180' : ''}`} />
             </button>
 
@@ -260,7 +260,7 @@ export function PokemonDetail({ pokemon, onAddToTeam, onClose, inTeam }) {
                 </span>
               ))}
               {selectedMoves.length === 0 && (
-                <span className="text-[8px] text-white/20 font-bold uppercase tracking-[0.2em]">
+                <span className="text-[8px] text-text-muted/20 font-bold uppercase tracking-[0.2em]">
                   Select up to 4 moves below
                 </span>
               )}
@@ -277,8 +277,8 @@ export function PokemonDetail({ pokemon, onAddToTeam, onClose, inTeam }) {
                       disabled={!isSelected && selectedMoves.length >= 4}
                       className="text-left px-3 py-2 rounded-lg text-[8px] font-black uppercase tracking-[0.1em] border transition-all disabled:opacity-30"
                       style={{
-                        borderColor: isSelected ? accentColor : 'rgba(255,255,255,0.05)',
-                        color: isSelected ? accentColor : 'rgba(255,255,255,0.4)',
+                        borderColor: isSelected ? accentColor : 'var(--color-border)',
+                        color: isSelected ? accentColor : 'var(--color-text-muted)',
                         background: isSelected ? `${accentColor}15` : 'transparent',
                       }}
                     >

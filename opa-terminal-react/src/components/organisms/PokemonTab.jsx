@@ -85,6 +85,8 @@ export function PokemonTab() {
           >
             <PokemonBattleArena
               isHost={battleState.isHost}
+              isBot={battleState.isBot}
+              difficulty={battleState.difficulty}
               myTeamData={battleState.myTeam}
               opponentTeamData={battleState.opponentTeam}
               p2pHandlers={p2pHandlersRef}

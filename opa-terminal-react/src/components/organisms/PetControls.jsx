@@ -11,49 +11,49 @@ export function PetControls({ pet, onAction }) {
         variant="accent" 
         onClick={() => onAction('feed')}
         disabled={isSleeping || isEgg}
-        className="flex flex-col gap-2 items-center py-6 rounded-2xl bg-white/[0.02] border-white/5 hover:bg-white/[0.05] transition-all duration-500"
+        className="flex flex-col gap-2 items-center py-6 rounded-2xl bg-surface-200/50 border-border hover:bg-surface-300 transition-all duration-500"
       >
-        <Pizza className="w-5 h-5 text-cyber-blue/50" />
-        <span className="text-[9px] font-black uppercase tracking-widest">FEED_ENTITY</span>
+        <Pizza className="w-5 h-5 text-accent/50" />
+        <span className="text-[9px] font-black uppercase tracking-widest">ALIMENTAR_ENTIDADE</span>
       </Button>
       
       <Button 
         variant="accent" 
         onClick={() => onAction('play')}
         disabled={isSleeping}
-        className="flex flex-col gap-2 items-center py-6 rounded-2xl bg-white/[0.02] border-white/5 hover:bg-white/[0.05] transition-all duration-500"
+        className="flex flex-col gap-2 items-center py-6 rounded-2xl bg-surface-200/50 border-border hover:bg-surface-300 transition-all duration-500"
       >
-        <Gamepad2 className="w-5 h-5 text-cyber-blue/50" />
-        <span className="text-[9px] font-black uppercase tracking-widest">OPTIMIZE_OPS</span>
+        <Gamepad2 className="w-5 h-5 text-accent/50" />
+        <span className="text-[9px] font-black uppercase tracking-widest">OTIMIZAR_OPS</span>
       </Button>
 
       <Button 
         variant="accent" 
         onClick={() => onAction('patch')}
         disabled={isSleeping}
-        className="flex flex-col gap-2 items-center py-6 rounded-2xl bg-white/[0.02] border-white/5 hover:bg-white/[0.05] transition-all duration-500"
+        className="flex flex-col gap-2 items-center py-6 rounded-2xl bg-surface-200/50 border-border hover:bg-surface-300 transition-all duration-500"
       >
-        <Wrench className="w-5 h-5 text-cyber-blue/50" />
-        <span className="text-[9px] font-black uppercase tracking-widest">PATCH_CORE</span>
+        <Wrench className="w-5 h-5 text-accent/50" />
+        <span className="text-[9px] font-black uppercase tracking-widest">APLICAR_PATCH</span>
       </Button>
 
       <Button 
         variant="accent" 
         onClick={() => onAction('dino')}
         disabled={isSleeping || isEgg}
-        className="flex flex-col gap-2 items-center py-6 rounded-2xl bg-white/[0.02] border-white/5 hover:bg-white/[0.05] transition-all duration-500"
+        className="flex flex-col gap-2 items-center py-6 rounded-2xl bg-surface-200/50 border-border hover:bg-surface-300 transition-all duration-500"
       >
-        <Zap className="w-5 h-5 text-cyber-blue/50" />
-        <span className="text-[9px] font-black uppercase tracking-widest">RUN_SYNC</span>
+        <Zap className="w-5 h-5 text-accent/50" />
+        <span className="text-[9px] font-black uppercase tracking-widest">EXECUTAR_SINCRONIA</span>
       </Button>
 
       <Button 
-        variant={isSleeping ? "glow" : "accent"} 
+        variant={isSleeping ? "primary" : "accent"} 
         onClick={() => onAction('sleep')}
-        className="flex flex-col gap-2 items-center py-6 rounded-2xl col-span-2 md:col-span-1 border-white/5 transition-all duration-500"
+        className="flex flex-col gap-2 items-center py-6 rounded-2xl col-span-2 md:col-span-1 border-border transition-all duration-500"
       >
-        <Moon className={`w-5 h-5 ${isSleeping ? 'text-bg' : 'text-white/20'}`} />
-        <span className="text-[9px] font-black uppercase tracking-widest">{isSleeping ? "AWAKEN_ID" : "SLEEP_MODE"}</span>
+        <Moon className={`w-5 h-5 ${isSleeping ? 'text-text-inverse' : 'text-text-muted/40'}`} />
+        <span className="text-[9px] font-black uppercase tracking-widest">{isSleeping ? "DESPERTAR_ID" : "MODO_SONO"}</span>
       </Button>
     </div>
   );

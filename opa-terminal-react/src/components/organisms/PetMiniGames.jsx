@@ -2,22 +2,23 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../atoms/Button';
 import { codificar } from '../../utils/opaCore';
+import { X, Zap, Activity, Terminal } from 'lucide-react';
 
 // --- SHARED OVERLAY ---
 const GameOverlay = ({ title, children, onClose, score, scoreLabel }) => (
   <motion.div 
     initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-    className="fixed inset-0 z-[100] bg-black/98 flex flex-col items-center justify-center p-4 backdrop-blur-xl overflow-y-auto"
+    className="fixed inset-0 z-[100] bg-bg/98 flex flex-col items-center justify-center p-4 backdrop-blur-xl overflow-y-auto"
   >
     <div className="w-full max-w-2xl flex flex-col items-center gap-8">
       <div className="flex flex-col items-center gap-2">
-        <h2 className="text-2xl font-black text-glow tracking-[4px]">{title}</h2>
-        <div className="text-energy font-bold uppercase tracking-widest text-[10px]">
+        <h2 className="text-2xl font-black text-primary tracking-[4px]">{title}</h2>
+        <div className="text-accent font-bold uppercase tracking-widest text-[10px]">
           {scoreLabel}: {score}
         </div>
       </div>
 
-      <div className="w-full bg-surface/20 border-2 border-border/50 rounded-2xl p-6 min-h-[300px] flex items-center justify-center overflow-hidden relative">
+      <div className="w-full bg-surface-100/20 border-2 border-border/50 rounded-2xl p-6 min-h-[300px] flex items-center justify-center overflow-hidden relative">
         {children}
       </div>
 
@@ -72,21 +73,21 @@ export function OptimizerGame({ onFinish }) {
                  onClick={() => {
                    if (i === activeBit) {
                      setScore(s => s + 1);
-                     setTimeLeft(t => t + 0.5); // Legacy parity: bonus time
+                     setTimeLeft(t => t + 0.5); 
                      setActiveBit(null);
                    }
                  }}
                  className={`w-16 h-16 md:w-20 md:h-20 border-2 transition-all flex items-center justify-center text-xl font-bold ${
                    activeBit === i 
-                   ? 'bg-danger/20 border-danger text-white scale-110 shadow-[0_0_20px_var(--color-danger)]' 
-                   : 'bg-black/40 border-border text-accent/20'
+                   ? 'bg-danger/20 border-danger text-white scale-110 shadow-pop' 
+                   : 'bg-surface-200 border-border text-accent/20'
                  }`}
                >
                  {activeBit === i ? '!' : (Math.random() > 0.5 ? '0' : '1')}
                </button>
              ))}
            </div>
-           <div className="text-glow font-mono uppercase tracking-widest text-sm">Tempo Restante: {timeLeft}s</div>
+           <div className="text-primary font-mono uppercase tracking-widest text-sm">Tempo Restante: {timeLeft}s</div>
          </div>
        )}
     </GameOverlay>
@@ -99,7 +100,6 @@ export function RunnerGame({ onFinish }) {
   const [isJumping, setIsJumping] = useState(false);
   const [isActive, setIsActive] = useState(false);
   const [obstacles, setObstacles] = useState([]);
-  const gameRef = useRef();
 
   const handleJump = useCallback(() => {
     if (isJumping || !isActive) return;
@@ -119,7 +119,6 @@ export function RunnerGame({ onFinish }) {
       setObstacles(obs => {
         const next = obs.map(o => ({ ...o, x: o.x - 5 })).filter(o => o.x > -10);
         
-        // Check collision (Dino is at x=15, width ~10%)
         const collision = next.find(o => o.x > 12 && o.x < 22 && !isJumping);
         if (collision) {
           setIsActive(false);
@@ -146,7 +145,7 @@ export function RunnerGame({ onFinish }) {
         <div className="w-full h-40 border-b-2 border-accent relative flex items-end overflow-hidden" onClick={handleJump}>
           <motion.div 
             animate={{ y: isJumping ? -60 : 0 }}
-            className="absolute left-[15%] bottom-0 text-glow font-bold text-xl h-10 flex items-center"
+            className="absolute left-[15%] bottom-0 text-primary font-bold text-xl h-10 flex items-center"
           >
             (o)
           </motion.div>
@@ -162,18 +161,15 @@ export function RunnerGame({ onFinish }) {
 }
 
 // --- 3. FIXADOR.BIT (Astro Fixer) ---
-// Simplified React-friendly version
 export function FixadorGame({ onFinish }) {
   const [score, setScore] = useState(0);
   const [isActive, setIsActive] = useState(false);
   const [targetChar, setTargetChar] = useState("");
-  const [inputChar, setInputChar] = useState("");
 
   const nextTask = useCallback(() => {
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     const char = chars[Math.floor(Math.random() * chars.length)];
     setTargetChar(char);
-    setInputChar("");
   }, []);
 
   useEffect(() => {
@@ -212,12 +208,12 @@ export function FixadorGame({ onFinish }) {
                   opacity: 0 
                 }}
                 animate={{ x: 0, y: 0, scale: 1, rotate: 0, opacity: 1 }}
-                className="text-6xl font-black text-danger border-4 border-danger/20 p-8 rounded-full shadow-[0_0_30px_rgba(255,62,62,0.3)]"
+                className="text-6xl font-black text-danger border-4 border-danger/20 p-8 rounded-full shadow-pop"
               >
                 {codificar(targetChar.toLowerCase())}
               </motion.div>
             </div>
-            <div className="text-glow animate-pulse font-bold text-[10px] uppercase tracking-widest">Pressione a Letra Correspondente</div>
+            <div className="text-primary animate-pulse font-bold text-[10px] uppercase tracking-widest">Pressione a Letra Correspondente</div>
          </div>
        )}
     </GameOverlay>

@@ -46,9 +46,9 @@ function PokemonCard({ pokemon, onSelect, inTeam }) {
       className="relative cursor-pointer group"
     >
       <div
-        className="bg-surface/60 backdrop-blur-xl border rounded-2xl p-4 flex flex-col items-center gap-3 transition-all duration-300 overflow-hidden"
+        className="bg-surface-100/60 backdrop-blur-xl border rounded-2xl p-4 flex flex-col items-center gap-3 transition-all duration-300 overflow-hidden"
         style={{
-          borderColor: inTeam ? accentColor : 'rgba(255,255,255,0.05)',
+          borderColor: inTeam ? accentColor : 'var(--color-border)',
           boxShadow: inTeam ? `0 0 20px ${accentColor}40` : 'none',
         }}
       >
@@ -59,7 +59,7 @@ function PokemonCard({ pokemon, onSelect, inTeam }) {
         />
 
         {/* ID */}
-        <span className="text-[8px] font-black tracking-[0.3em] text-white/30 self-start">
+        <span className="text-[8px] font-black tracking-[0.3em] text-text-muted self-start">
           #{String(pokemon.id).padStart(3, '0')}
         </span>
 
@@ -76,7 +76,7 @@ function PokemonCard({ pokemon, onSelect, inTeam }) {
         </div>
 
         {/* Name */}
-        <span className="text-white font-black text-[10px] uppercase tracking-[0.2em] text-center truncate w-full text-center">
+        <span className="text-text-main font-black text-[10px] uppercase tracking-[0.2em] text-center truncate w-full">
           {capitalize(pokemon.name)}
         </span>
 
@@ -137,22 +137,22 @@ export function PokemonPokedex({ onSelectPokemon, teamIds = [] }) {
       {/* Search & Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted/60" />
           <input
             type="text"
-            placeholder="SEARCH_POKÉMON..."
+            placeholder="PROCURAR_POKÉMON..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-surface/60 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-[11px] font-black uppercase tracking-[0.2em] text-white placeholder:text-white/20 focus:outline-none focus:border-glow/40 transition-colors"
+            className="w-full bg-surface-200/60 border border-border rounded-xl pl-10 pr-4 py-3 text-[11px] font-black uppercase tracking-[0.2em] text-text-main placeholder:text-text-muted/20 focus:outline-none focus:border-primary/40 transition-colors"
           />
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <Filter className="w-4 h-4 text-white/30 shrink-0" />
+          <Filter className="w-4 h-4 text-text-muted/60 shrink-0" />
           <button
             onClick={() => setTypeFilter('')}
-            className={`text-[8px] font-black uppercase tracking-[0.2em] px-3 py-1.5 rounded-lg border transition-all ${!typeFilter ? 'border-glow/40 text-glow bg-glow/10' : 'border-white/10 text-white/40 hover:border-white/20'}`}
+            className={`text-[8px] font-black uppercase tracking-[0.2em] px-3 py-1.5 rounded-lg border transition-all ${!typeFilter ? 'border-primary/40 text-primary bg-primary/10' : 'border-border text-text-muted hover:border-border/50'}`}
           >
-            ALL
+            TODOS
           </button>
           {ALL_TYPES.slice(0, 6).map((t) => (
             <button
@@ -160,8 +160,8 @@ export function PokemonPokedex({ onSelectPokemon, teamIds = [] }) {
               onClick={() => setTypeFilter(typeFilter === t ? '' : t)}
               className="text-[8px] font-black uppercase tracking-[0.15em] px-3 py-1.5 rounded-lg border transition-all"
               style={{
-                borderColor: typeFilter === t ? TYPE_COLORS_NEON[t] : 'rgba(255,255,255,0.08)',
-                color: typeFilter === t ? TYPE_COLORS_NEON[t] : 'rgba(255,255,255,0.4)',
+                borderColor: typeFilter === t ? TYPE_COLORS_NEON[t] : 'var(--color-border)',
+                color: typeFilter === t ? TYPE_COLORS_NEON[t] : 'var(--color-text-muted)',
                 background: typeFilter === t ? `${TYPE_COLORS_NEON[t]}15` : 'transparent',
               }}
             >
@@ -185,14 +185,14 @@ export function PokemonPokedex({ onSelectPokemon, teamIds = [] }) {
         {/* Infinite scroll trigger */}
         <div ref={loaderRef} className="col-span-full flex justify-center py-6">
           {loading && (
-            <div className="flex items-center gap-3 text-white/30 text-[10px] font-black tracking-[0.3em] uppercase">
-              <div className="w-4 h-4 border-2 border-glow border-t-transparent rounded-full animate-spin" />
-              LOADING_DATA...
+            <div className="flex items-center gap-3 text-text-muted/60 text-[10px] font-black tracking-[0.3em] uppercase">
+              <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+              CARREGANDO_DADOS...
             </div>
           )}
           {!hasMore && !loading && (
-            <span className="text-white/20 text-[9px] font-black tracking-[0.4em] uppercase">
-              ALL_POKÉMON_LOADED
+            <span className="text-text-muted/20 text-[9px] font-black tracking-[0.4em] uppercase">
+              TODOS_OS_POKÉMON_CARREGADOS
             </span>
           )}
         </div>

@@ -1,12 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Shield, Key, Mail, User, ArrowRight, Zap, Lock, Info } from 'lucide-react';
+import { Shield, Mail, User, ArrowRight, Lock } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
-
-const decryptEffect = (text) => {
-    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%&*";
-    return text.split('').map(() => chars[Math.floor(Math.random() * chars.length)]).join('');
-};
 
 export function AuthScreen() {
   const [view, setView] = useState('login'); 
@@ -24,7 +19,7 @@ export function AuthScreen() {
     if (view === 'login') {
         const { error: authError } = await signIn(email, password);
         if (authError) {
-            setFeedback(authError.message === 'Email not confirmed' ? 'ERROR: UNVERIFIED_IDENTITY' : 'ERROR: ACCESS_DENIED');
+            setFeedback(authError.message === 'Email not confirmed' ? 'Conta não verificada. Verifique seu e-mail.' : 'Credenciais inválidas. Tente novamente.');
         }
     } else if (view === 'register') {
         if (!nome.trim()) return;
@@ -32,7 +27,7 @@ export function AuthScreen() {
         if (!authError) setView('check-email');
     } else if (view === 'forgot-password') {
         const { error: authError } = await resetPassword(email);
-        if (!authError) setFeedback('SUCCESS: RESET_LINK_EMITTED');
+        if (!authError) setFeedback('Sucesso: Link de recuperação enviado.');
     }
   };
 
@@ -40,8 +35,8 @@ export function AuthScreen() {
     <div className="fixed inset-0 z-[500] bg-bg flex items-center justify-center p-4 overflow-hidden">
       {/* Background Decor */}
       <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-glow/10 blur-[150px] rounded-full animate-pulse" />
-        <div className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] bg-cyber-blue/10 blur-[150px] rounded-full" />
+        <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-primary/10 blur-[150px] rounded-full animate-pulse" />
+        <div className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] bg-accent/10 blur-[150px] rounded-full" />
         <div className="noise-bg absolute inset-0 opacity-10" />
       </div>
 
@@ -52,26 +47,26 @@ export function AuthScreen() {
         className="w-full max-w-lg relative z-10"
       >
         {/* Corner Decor */}
-        <div className="absolute -top-4 -left-4 w-16 h-16 border-t-2 border-l-2 border-glow opacity-40" />
-        <div className="absolute -bottom-4 -right-4 w-16 h-16 border-b-2 border-r-2 border-cyber-blue opacity-40" />
+        <div className="absolute -top-4 -left-4 w-16 h-16 border-t-2 border-l-2 border-primary/40 opacity-40" />
+        <div className="absolute -bottom-4 -right-4 w-16 h-16 border-b-2 border-r-2 border-accent/40 opacity-40" />
 
-        <div className="glass-card relative overflow-hidden backdrop-blur-3xl bg-surface/80 border-white/5 p-10 md:p-16 w-full shadow-[0_32px_64px_rgba(0,0,0,0.8)]">
+        <div className="glass-card relative overflow-hidden backdrop-blur-3xl bg-surface-100/80 border-border p-8 md:p-12 w-full shadow-main">
             
             {/* Header */}
-            <div className="flex flex-col items-center mb-12">
-                <div className="w-24 h-24 mb-8 relative flex items-center justify-center">
-                    <div className="absolute inset-0 border border-glow/20 rounded-3xl rotate-45 group-hover:rotate-90 transition-transform duration-1000" />
-                    <div className="absolute inset-0 bg-glow/5 blur-xl rounded-full" />
-                    <Shield className="text-glow w-10 h-10 relative animate-flicker" />
+            <div className="flex flex-col items-center mb-10">
+                <div className="w-20 h-20 mb-6 relative flex items-center justify-center">
+                    <div className="absolute inset-0 border border-primary/20 rounded-3xl rotate-45 group-hover:rotate-90 transition-transform duration-1000" />
+                    <div className="absolute inset-0 bg-primary/10 blur-xl rounded-full" />
+                    <Shield className="text-primary w-10 h-10 relative animate-flicker" />
                 </div>
                 
-                <h2 className="text-4xl font-black text-white text-center tracking-[0.3em] mb-2">
-                    {view === 'login' ? 'GATEWAY' : view === 'register' ? 'PROTOCOL' : 'RECOVERY'}
+                <h2 className="text-3xl font-bold text-text-main text-center tracking-wider mb-2">
+                    {view === 'login' ? 'Acesso' : view === 'register' ? 'Cadastro' : 'Recuperação'}
                 </h2>
                 <div className="flex items-center gap-2">
-                  <div className="h-px w-8 bg-glow/40" />
-                  <p className="text-[9px] text-white/30 font-black tracking-[0.5em] uppercase">Security Level 4</p>
-                  <div className="h-px w-8 bg-glow/40" />
+                  <div className="h-px w-8 bg-primary/40" />
+                  <p className="text-xs text-text-muted font-medium tracking-widest uppercase">OPA Terminal</p>
+                  <div className="h-px w-8 bg-primary/40" />
                 </div>
             </div>
 
@@ -85,15 +80,15 @@ export function AuthScreen() {
                         className="text-center space-y-10 py-6"
                     >
                         <div className="space-y-4">
-                            <div className="w-16 h-16 bg-glow/10 rounded-2xl mx-auto flex items-center justify-center border border-glow/20">
-                                <Mail className="text-glow w-8 h-8" />
+                            <div className="w-16 h-16 bg-primary/10 rounded-2xl mx-auto flex items-center justify-center border border-primary/20">
+                                <Mail className="text-primary w-8 h-8" />
                             </div>
-                            <h3 className="text-xl text-white font-black tracking-widest">VALIDATION_SENT</h3>
-                            <p className="text-xs text-white/40 leading-relaxed font-bold uppercase tracking-wider">
-                                Access fragment dispatched to <strong className="text-glow">{email}</strong>. Check your communication link.
+                            <h3 className="text-xl text-text-main font-bold">Verifique seu E-mail</h3>
+                            <p className="text-sm text-text-muted leading-relaxed font-medium">
+                                Enviamos um link de confirmação para <strong className="text-primary">{email}</strong>. Acesse sua caixa de entrada para continuar.
                             </p>
                         </div>
-                        <button onClick={() => setView('login')} className="btn-premium w-full">RETURN_TO_BASE</button>
+                        <Button onClick={() => setView('login')} variant="primary" className="w-full py-4">Voltar ao Login</Button>
                     </motion.div>
                 ) : (
                     <motion.form 
@@ -102,114 +97,103 @@ export function AuthScreen() {
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         onSubmit={handleSubmit} 
-                        className="space-y-8"
+                        className="space-y-6"
                     >
                         {/* Tab Switcher */}
                         {(view === 'login' || view === 'register') && (
-                            <div className="grid grid-cols-2 gap-4 mb-10 bg-white/[0.03] p-1.5 rounded-2xl border border-white/5">
+                            <div className="grid grid-cols-2 gap-4 mb-8 bg-surface-200 p-1.5 rounded-2xl border border-border">
                                 <button 
                                     type="button"
                                     onClick={() => setView('login')}
-                                    className={`py-4 text-[10px] font-black rounded-xl transition-all tracking-[0.2em] ${view === 'login' ? 'bg-glow text-bg shadow-glowStrong' : 'text-white/20 hover:text-white/40'}`}
+                                    className={`py-3 text-sm font-bold rounded-xl transition-all ${view === 'login' ? 'bg-primary text-text-main shadow-pop' : 'text-text-muted hover:text-text-main/80'}`}
                                 >
                                     LOGIN
                                 </button>
                                 <button 
                                     type="button"
                                     onClick={() => setView('register')}
-                                    className={`py-4 text-[10px] font-black rounded-xl transition-all tracking-[0.2em] ${view === 'register' ? 'bg-glow text-bg shadow-glowStrong' : 'text-white/20 hover:text-white/40'}`}
+                                    className={`py-3 text-sm font-bold rounded-xl transition-all ${view === 'register' ? 'bg-primary text-text-main shadow-pop' : 'text-text-muted hover:text-text-main/80'}`}
                                 >
-                                    ENROLL
+                                    CRIAR CONTA
                                 </button>
                             </div>
                         )}
 
-                        <div className="space-y-6">
+                        <div className="space-y-5">
                             {view === 'register' && (
                                 <div className="space-y-2">
-                                    <label className="text-[8px] font-black text-white/20 ml-2 uppercase tracking-[0.4em]">Identity.Fragment</label>
+                                    <label className="text-xs font-bold text-text-muted ml-1 uppercase tracking-wide">Nome de Usuário</label>
                                     <div className="relative group">
-                                        <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/10 group-focus-within:text-glow/50 transition-colors" />
+                                        <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-text-muted/40 group-focus-within:text-primary transition-colors" />
                                         <input 
-                                            type="text" required placeholder="USERNAME"
+                                            type="text" required placeholder="Digite seu nome"
                                             value={nome} onChange={(e) => setNome(e.target.value)}
-                                            className="pl-12 w-full h-14"
+                                            className="pl-12 w-full"
                                         />
                                     </div>
                                 </div>
                             )}
 
                             <div className="space-y-2">
-                                <label className="text-[8px] font-black text-white/20 ml-2 uppercase tracking-[0.4em]">Comms.Link</label>
+                                <label className="text-xs font-bold text-text-muted ml-1 uppercase tracking-wide">E-mail</label>
                                 <div className="relative group">
-                                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/10 group-focus-within:text-glow/50 transition-colors" />
+                                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-text-muted/40 group-focus-within:text-primary transition-colors" />
                                     <input 
-                                        type="email" required placeholder="EMAIL_ADDRESS"
+                                        type="email" required placeholder="seu@email.com"
                                         value={email} onChange={(e) => setEmail(e.target.value)}
-                                        className="pl-12 w-full h-14"
+                                        className="pl-12 w-full"
                                     />
                                 </div>
                             </div>
 
                             {view !== 'forgot-password' && (
                                 <div className="space-y-2">
-                                    <label className="text-[8px] font-black text-white/20 ml-2 uppercase tracking-[0.4em]">Access.Key</label>
+                                    <label className="text-xs font-bold text-text-muted ml-1 uppercase tracking-wide">Senha</label>
                                     <div className="relative group">
-                                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/10 group-focus-within:text-glow/50 transition-colors" />
+                                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-text-muted/40 group-focus-within:text-primary transition-colors" />
                                         <input 
-                                            type="password" required placeholder="PASSWORD"
+                                            type="password" required placeholder="Sua senha secreta"
                                             value={password} onChange={(e) => setPassword(e.target.value)}
-                                            className="pl-12 w-full h-14"
+                                            className="pl-12 w-full"
                                         />
                                     </div>
                                 </div>
                             )}
                         </div>
 
-                        <div className="flex items-center justify-between px-2">
+                        <div className="flex items-center justify-between px-2 pt-2">
                             {view === 'login' && (
-                                <button type="button" onClick={() => setView('forgot-password')} className="text-[10px] text-white/20 hover:text-white/60 uppercase font-bold tracking-widest transition-colors">
-                                    Lost access?
+                                <button type="button" onClick={() => setView('forgot-password')} className="text-xs text-text-muted hover:text-text-main font-medium transition-colors">
+                                    Esqueceu sua senha?
                                 </button>
                             )}
                             {view === 'forgot-password' && (
-                                <button type="button" onClick={() => setView('login')} className="text-[10px] text-white/20 hover:text-white/60 uppercase font-bold tracking-widest transition-colors">
-                                    Return to login
+                                <button type="button" onClick={() => setView('login')} className="text-xs text-text-muted hover:text-text-main font-medium transition-colors">
+                                    Voltar ao login
                                 </button>
                             )}
                         </div>
 
-                        <div className="space-y-4 pt-4">
-                            {feedback && <p className="text-[10px] text-glow text-center font-black bg-glow/5 py-4 rounded-xl border border-glow/20 uppercase tracking-widest">{feedback}</p>}
-                            {error && <p className="text-[10px] text-danger text-center font-black bg-danger/5 py-4 rounded-xl border border-danger/20 uppercase tracking-widest">SYSTEM_ERROR: {error}</p>}
+                        <div className="space-y-4 pt-2">
+                            {feedback && <p className="text-sm text-primary text-center font-medium bg-primary/10 py-3 rounded-xl border border-primary/20">{feedback}</p>}
+                            {error && <p className="text-sm text-danger text-center font-medium bg-danger/10 py-3 rounded-xl border border-danger/20">Erro: {error}</p>}
                             
-                            <button 
+                            <Button 
                                 type="submit" 
+                                variant="primary"
                                 disabled={loading}
-                                className="btn-premium w-full py-6 text-[11px] flex items-center justify-center gap-3 active:scale-95 disabled:scale-100"
+                                className="w-full py-4 flex items-center justify-center gap-3"
                             >
-                                <span>{loading ? "INITIALIZING..." : (view === 'login' ? "INITIALIZE_SESSION" : view === 'register' ? "GENERATE_ENTITY" : "DISPATCH_RECOVERY")}</span>
-                                {!loading && <ArrowRight className="w-4 h-4" />}
-                            </button>
+                                <span>{loading ? "PROCESSANDO..." : (view === 'login' ? "ENTRAR" : view === 'register' ? "CRIAR CONTA" : "ENVIAR LINK")}</span>
+                                {!loading && <ArrowRight className="w-5 h-5" />}
+                            </Button>
                         </div>
                     </motion.form>
                 )}
             </AnimatePresence>
-
-            {/* Footer */}
-            <div className="mt-12 flex items-center justify-between border-t border-white/5 pt-8 opacity-30">
-                <div className="flex gap-4">
-                    <div className="flex flex-col gap-1">
-                      <div className="h-0.5 w-4 bg-glow" />
-                      <div className="h-0.5 w-6 bg-glow/40" />
-                    </div>
-                </div>
-                <div className="flex items-center gap-3">
-                    <span className="text-[8px] font-black uppercase tracking-[0.4em] text-white/40">OPA_SEC_CORE_v2.8</span>
-                </div>
-            </div>
         </div>
       </motion.div>
     </div>
   );
 }
+
